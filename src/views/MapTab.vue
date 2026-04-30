@@ -14,25 +14,25 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import * as echarts from 'echarts'
 
 const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
 const barEl = ref(null)
+let barChart = null
 
-const BASE = { paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#ffffff', font:{family:'Pretendard',color:'#8898aa',size:10}, margin:{l:8,r:8,t:12,b:8} }
-const HOVER = { bgcolor:'#ffffff', bordercolor:'#dee2e6', font:{color:'#1a1a2e',size:11} }
-
-async function draw() {
+// 지도는 Plotly 유지 (scattergeo는 ECharts에서 별도 설정 필요)
+async function drawMap() {
   await nextTick()
   const P = window.Plotly
-  if (!P || !mapEl.value || !barEl.value || !props.mapDf.length) return
+  if (!P || !mapEl.value || !props.mapDf.length) return
 
   P.react(mapEl.value, [{
     type: 'scattergeo',
     lat: props.mapDf.map(r => r.lat),
     lon: props.mapDf.map(r => r.lng),
-    text: props.mapDf.map(r => `${r.region}  ${r.avg_load.toFixed(1)} MW`),
+    text: props.mapDf.map(r => `${r.region}  ${r.avg_load.toFixed(1)} W`),
     mode: 'markers+text', textposition: 'top center',
     textfont: { size: 9, color: '#8898aa' },
     marker: {
@@ -40,12 +40,15 @@ async function draw() {
       color: props.mapDf.map(r => r.avg_load),
       colorscale: [[0,'#e8ebfc'],[0.4,'#5865f2'],[1,'#c0b0ff']],
       showscale: true,
-      colorbar: { title:{text:'MW',font:{color:'#8898aa',size:10}}, thickness:8, len:0.5, tickfont:{color:'#8898aa',size:9} },
+      colorbar: { title:{text:'W',font:{color:'#8898aa',size:10}}, thickness:8, len:0.5, tickfont:{color:'#8898aa',size:9} },
       line: { color: '#c8d0da', width: 0.5 },
     },
     hovertemplate: '%{text}<extra></extra>',
   }], {
-    ...BASE, height: 420,
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: '#ffffff',
+    font: { family: 'Pretendard', color: '#8898aa', size: 10 },
+    margin: { l: 0, r: 40, t: 8, b: 0 },
+    height: 380,
     geo: {
       scope: 'asia', center: { lat: 36.5, lon: 127.8 }, projection: { scale: 18 },
       showland: true, landcolor: '#f0f2f5',
@@ -53,37 +56,77 @@ async function draw() {
       showframe: false, bgcolor: 'rgba(0,0,0,0)',
       showocean: true, oceancolor: '#dde8f0',
     },
-    hoverlabel: HOVER,
-  })
-
-  const sorted = [...props.mapDf].sort((a,b) => a.avg_load - b.avg_load)
-  P.react(barEl.value, [{
-    type: 'bar', orientation: 'h',
-    x: sorted.map(r => r.avg_load),
-    y: sorted.map(r => r.region),
-    marker: {
-      color: sorted.map(r => r.avg_load),
-      colorscale: [[0,'#e8ebfc'],[0.4,'#5865f2'],[1,'#c0b0ff']],
-      opacity: 0.85,
-    },
-    hovertemplate: '%{y}: %{x:.1f} MW<extra></extra>',
-  }], {
-    ...BASE, height: 420,
-    margin: { l: 90, r: 16, t: 12, b: 36 },
-    xaxis: {
-      title:{text:'MW',font:{color:'#8898aa',size:10}},
-      range: [
-        Math.min(...sorted.map(r => r.avg_load)) * 0.95,
-        Math.max(...sorted.map(r => r.avg_load)) * 1.02,
-      ],
-      gridcolor:'#e9ecef',
-      linecolor:'#dee2e6',
-      tickfont:{color:'#8898aa',size:10} },
-    yaxis: { automargin:true, gridcolor:'#e9ecef', linecolor:'#dee2e6', tickfont:{color:'#4a5568',size:11} },
-    hoverlabel: HOVER,
+    hoverlabel: { bgcolor: '#1a1a2e', bordercolor: 'transparent', font: { color: '#fff', size: 12 } },
   })
 }
 
-onMounted(() => { const t=setInterval(()=>{if(window.Plotly){clearInterval(t);draw()}},100) })
+// 랭킹 바 차트는 ECharts
+async function drawBar() {
+  await nextTick()
+  if (!barEl.value || !props.mapDf.length) return
+  if (!barChart) barChart = echarts.init(barEl.value)
+
+  const sorted = [...props.mapDf].sort((a, b) => a.avg_load - b.avg_load)
+  const maxVal = Math.max(...sorted.map(r => r.avg_load))
+  const minVal = Math.min(...sorted.map(r => r.avg_load))
+
+  barChart.setOption({
+    backgroundColor: 'transparent',
+    grid: { left: 10, right: 70, top: 8, bottom: 8, containLabel: true },
+    xAxis: {
+      type: 'value',
+      min: minVal * 0.95,
+      max: maxVal * 1.05,
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard' },
+      splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
+    },
+    yAxis: {
+      type: 'category',
+      data: sorted.map(r => r.region),
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { color: '#4a5568', fontSize: 11, fontFamily: 'Pretendard' },
+    },
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: '#1a1a2e',
+      borderColor: 'transparent',
+      borderRadius: 8,
+      padding: [8, 12],
+      textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
+      formatter: p => `<b>${p.name}</b><br><span style="color:#c0b0ff;">${p.value.toFixed(1)} W</span>`,
+    },
+    series: [{
+      type: 'bar',
+      data: sorted.map(r => ({
+        value: r.avg_load,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#8b9ef0' },
+            { offset: 1, color: '#5e72e4' },
+          ]),
+          borderRadius: [0, 4, 4, 0],
+        },
+      })),
+      barMaxWidth: 22,
+      label: {
+        show: true,
+        position: 'right',
+        color: '#8898aa',
+        fontSize: 10,
+        fontFamily: 'JetBrains Mono',
+        formatter: p => p.value.toFixed(1),
+      },
+    }],
+  }, true)
+}
+
+async function draw() {
+  await drawMap()
+  await drawBar()
+}
+
+onMounted(() => setTimeout(draw, 100))
+onUnmounted(() => barChart?.dispose())
 watch(() => props.mapDf, draw)
 </script>

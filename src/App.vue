@@ -65,7 +65,7 @@
       <!-- 페이지 헤더 -->
       <div class="page-header">
         <div>
-          <div class="page-breadcrumb">Pages / 대시보드</div>
+          <div class="page-breadcrumb">Ensight ✦ 전국 전력 수요 예측 시스템</div>
           <div class="page-title">{{ tabs.find(t => t.key === activeTab)?.label }}</div>
         </div>
         <div class="page-header-right">
@@ -81,9 +81,11 @@
             <div>
               <div class="kpi-tag">직전 전력</div>
               <div class="kpi-value">{{ latestPower }}</div>
-              <div class="kpi-unit">MW · 마지막 입력값</div>
+              <div class="kpi-unit">W · 마지막 입력값</div>
             </div>
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#1a7f37,#4ade80)">⚡</div>
+            <div class="kpi-icon blue">
+              <img :src="powerIcon" alt="직전 전력" class="kpi-icon-img" />
+            </div>
           </div>
         </div>
         <div class="kpi-card warn">
@@ -91,9 +93,11 @@
             <div>
               <div class="kpi-tag">168step 피크</div>
               <div class="kpi-value">{{ loadPeak }}</div>
-              <div class="kpi-unit">MW · 입력 구간 최대값</div>
+              <div class="kpi-unit">W · 입력 구간 최대값</div>
             </div>
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#9e6a03,#facc15)">📈</div>
+            <div class="kpi-icon blue">
+              <img :src="peakIcon" alt="168step 피크" class="kpi-icon-img" />
+            </div>
           </div>
         </div>
         <div class="kpi-card info">
@@ -103,7 +107,9 @@
               <div class="kpi-value">{{ avgTemp }}°</div>
               <div class="kpi-unit">°C · 168step 평균</div>
             </div>
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#1d4ed8,#60a5fa)">🌡️</div>
+            <div class="kpi-icon blue">
+              <img :src="tempIcon" alt="평균 기온" class="kpi-icon-img" />
+            </div>
           </div>
         </div>
         <div class="kpi-card alert">
@@ -113,7 +119,9 @@
               <div class="kpi-value">{{ newsView.length }}</div>
               <div class="kpi-unit">건 · 168step 기준</div>
             </div>
-            <div class="kpi-icon" style="background:linear-gradient(135deg,#b91c1c,#f87171)">📰</div>
+            <div class="kpi-icon blue">
+              <img :src="newsIcon" alt="뉴스 이벤트" class="kpi-icon-img" />
+            </div>
           </div>
         </div>
       </div>
@@ -156,6 +164,10 @@ import WeatherTab from '@/views/WeatherTab.vue'
 import demandIcon from '@/assets/images/icons/demand.png'
 import mapIcon from '@/assets/images/icons/map.png'
 import weatherIcon from '@/assets/images/icons/weather.png'
+import powerIcon from '@/assets/images/icons/power.png'
+import peakIcon from '@/assets/images/icons/peak.png'
+import tempIcon from '@/assets/images/icons/temperature.png'
+import newsIcon from '@/assets/images/icons/news.png'
 
 const INPUT_WINDOW = 168
 const HORIZON = 12

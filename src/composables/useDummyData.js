@@ -37,6 +37,219 @@ function normalApprox(rng, mean = 0, std = 1) {
   return mean + std * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
 }
 
+function pick(arr, idx) {
+  return arr[idx % arr.length]
+}
+
+function scoreByRange(min, max, seed) {
+  const v = ((seed * 37 + 17) % 100) / 100
+  return +(min + v * (max - min)).toFixed(2)
+}
+
+function generateNewsData() {
+  const rows = []
+
+  const regions = [
+    '경기', '경기 북부', '서울', '남서울', '인천',
+    '광주전남', '전북', '강원', '충북', '대전충남',
+    '부산', '대구경북', '경남', '제주특별지사',
+  ]
+
+  const eventTemplates = [
+    {
+      event_type: '경제',
+      keyword: '경제 활동',
+      direction: 'increase',
+      attention_hint: 'known_future:pca_embedding_29',
+      score: [0.58, 0.82],
+      headlines: [
+        '{region} 지역 소비 심리 회복세',
+        '{region} 연말 경제 활동 증가 전망',
+        '{region} 상업시설 매출 증가세',
+        '{region} 업무·상업지구 유동 인구 증가',
+      ],
+      summaries: [
+        '경제 활동과 소비 증가가 상업시설 운영 확대와 전력 수요 상승으로 이어질 가능성이 있음.',
+        '연말 소비와 업무 활동 증가로 낮 시간대 전력 부하가 상승할 수 있음.',
+        '지역 내 경제 활동이 활발해지면서 상업 및 업무시설의 전력 사용량 증가 가능성이 제기됨.',
+      ],
+    },
+    {
+      event_type: '관광',
+      keyword: '관광 수요',
+      direction: 'increase',
+      attention_hint: 'known_future:pca_embedding_17',
+      score: [0.52, 0.78],
+      headlines: [
+        '{region} 겨울 관광객 증가',
+        '{region} 스키장·리조트 방문객 확대',
+        '{region} 연말 관광 수요 집중',
+        '{region} 숙박·레저시설 이용 증가',
+      ],
+      summaries: [
+        '겨울철 관광객 유입으로 숙박, 난방, 상업시설 전력 수요가 증가할 가능성이 있음.',
+        '스키장과 리조트 방문객 증가가 지역 내 소비와 전력 사용량 상승으로 이어질 수 있음.',
+        '관광 수요 확대에 따라 야간 및 주말 시간대 전력 부하 변동 가능성이 있음.',
+      ],
+    },
+    {
+      event_type: '한파',
+      keyword: '기온 하락',
+      direction: 'increase',
+      attention_hint: 'known_future:temperature',
+      score: [0.68, 0.91],
+      headlines: [
+        '{region} 한파 특보 발효',
+        '{region} 아침 최저기온 급락',
+        '{region} 강추위 지속 전망',
+        '{region} 난방 수요 증가 우려',
+      ],
+      summaries: [
+        '기온 하락으로 난방 사용량이 늘면서 전력 수요가 상승할 가능성이 큼.',
+        '낮은 기온이 유지되면서 주거 및 상업시설의 난방 부하 증가가 예상됨.',
+        '한파 영향으로 오전 시간대와 저녁 시간대 전력 피크가 확대될 수 있음.',
+      ],
+    },
+    {
+      event_type: '대설',
+      keyword: '적설',
+      direction: 'increase',
+      attention_hint: 'known_future:snow_weather',
+      score: [0.56, 0.83],
+      headlines: [
+        '{region} 대설 예보',
+        '{region} 출근길 눈 예보',
+        '{region} 폭설 대비 비상근무 체계 가동',
+        '{region} 적설 영향으로 교통 차질 우려',
+      ],
+      summaries: [
+        '대설과 교통 지연 가능성으로 시설 운영 패턴과 난방 수요가 함께 변동할 수 있음.',
+        '눈 예보로 출근 시간대 전력 사용 패턴이 평소와 다르게 나타날 가능성이 있음.',
+        '제설 작업과 난방 수요가 동시에 증가하면서 지역 전력 부하 상승 가능성이 있음.',
+      ],
+    },
+    {
+      event_type: '산업',
+      keyword: '산업 가동률',
+      direction: 'increase',
+      attention_hint: 'known_future:pca_embedding_08',
+      score: [0.50, 0.77],
+      headlines: [
+        '{region} 산업단지 생산 일정 조정',
+        '{region} 제조시설 가동률 변동',
+        '{region} 연말 생산 물량 증가',
+        '{region} 주요 사업장 전력 사용 증가 전망',
+      ],
+      summaries: [
+        '산업시설의 생산 일정 조정으로 시간대별 전력 수요가 달라질 가능성이 있음.',
+        '연말 생산 물량 증가가 제조업 전력 사용량 상승으로 이어질 수 있음.',
+        '일부 제조시설의 가동 확대가 지역 부하 증가 요인으로 작용할 수 있음.',
+      ],
+    },
+    {
+      event_type: '정책',
+      keyword: '수요관리',
+      direction: 'decrease',
+      attention_hint: 'known_future:demand_response',
+      score: [0.42, 0.64],
+      headlines: [
+        '{region} 동절기 에너지 절감 대책 발표',
+        '{region} 피크 시간대 수요관리 강화',
+        '{region} 공공기관 난방온도 관리 강화',
+        '{region} 전력 사용량 분산 캠페인 시행',
+      ],
+      summaries: [
+        '피크 시간대 전력 사용량을 줄이기 위한 수요관리 정책이 추진됨.',
+        '공공기관과 산업체 대상 절감 권고로 일부 시간대 부하 완화 가능성이 있음.',
+        '전력 사용량 분산 정책이 단기 피크를 낮추는 요인으로 작용할 수 있음.',
+      ],
+    },
+    {
+      event_type: '정비',
+      keyword: '설비 점검',
+      direction: 'decrease',
+      attention_hint: 'known_future:maintenance',
+      score: [0.35, 0.58],
+      headlines: [
+        '{region} 주요 설비 정기점검 예정',
+        '{region} 전력 관련 시설 점검 실시',
+        '{region} 산업시설 일부 라인 점검',
+        '{region} 설비 정비로 단기 부하 감소 가능',
+      ],
+      summaries: [
+        '정기 점검 일정으로 일부 시설의 전력 사용량이 일시적으로 감소할 가능성이 있음.',
+        '설비 점검과 운영 조정으로 특정 시간대 부하가 낮아질 수 있음.',
+        '유지보수 작업에 따라 시설 가동 패턴이 일시적으로 변화할 것으로 보임.',
+      ],
+    },
+  ]
+
+  const times = ['07:00', '10:00', '13:00', '17:00', '20:00']
+
+  let idx = 0
+
+  for (let day = 2; day <= 28; day++) {
+    for (let t = 0; t < times.length; t++) {
+      const region = pick(regions, day + t * 3 + idx)
+      const template = pick(eventTemplates, day + t + idx)
+
+      rows.push({
+        timestamp: new Date(`2014-12-${String(day).padStart(2, '0')}T${times[t]}`),
+        region,
+        event_type: template.event_type,
+        keyword: template.keyword,
+        direction: template.direction,
+        attention_hint: template.attention_hint,
+        headline: pick(template.headlines, idx).replace('{region}', region),
+        summary: pick(template.summaries, day + idx),
+        impact_score: scoreByRange(template.score[0], template.score[1], day + t + idx),
+      })
+
+      idx++
+    }
+  }
+
+  // 특정 샘플 설명이 잘 나오도록 강원 / 관광 / 한파 / 경제 뉴스는 의도적으로 조금 더 보강
+  rows.push(
+    {
+      timestamp: new Date('2014-12-17T08:00'),
+      region: '강원',
+      event_type: '한파',
+      keyword: '기온 하락',
+      direction: 'increase',
+      attention_hint: 'known_future:temperature',
+      headline: '강원 아침 기온 급락으로 난방 수요 증가',
+      summary: '강원 지역의 낮은 기온이 지속되면서 난방 부하와 오전 시간대 전력 수요가 증가할 가능성이 있음.',
+      impact_score: 0.88,
+    },
+    {
+      timestamp: new Date('2014-12-17T11:00'),
+      region: '강원',
+      event_type: '관광',
+      keyword: '겨울 관광',
+      direction: 'increase',
+      attention_hint: 'known_future:pca_embedding_17',
+      headline: '강원 스키장 방문객 증가세',
+      summary: '겨울철 스키장과 리조트 방문객 증가가 숙박, 상업시설, 난방 수요 확대로 이어질 수 있음.',
+      impact_score: 0.79,
+    },
+    {
+      timestamp: new Date('2014-12-17T14:00'),
+      region: '강원',
+      event_type: '경제',
+      keyword: '지역 소비',
+      direction: 'increase',
+      attention_hint: 'known_future:pca_embedding_29',
+      headline: '강원 관광지 중심 소비 활동 확대',
+      summary: '관광객 유입에 따른 지역 소비 증가가 상업시설 전력 사용량 상승 요인으로 작용할 가능성이 있음.',
+      impact_score: 0.74,
+    }
+  )
+
+  return rows.sort((a, b) => a.timestamp - b.timestamp)
+}
+
+
 let _cache = null
 
 export function useDummyData() {
@@ -100,22 +313,7 @@ export function useDummyData() {
     }
   }
 
-  const newsData = [
-    { timestamp: new Date('2014-12-03T09:00'), region: '서울', event_type: '한파', headline: '서울 한파 특보 발효', summary: '기온 급강하로 난방 수요 증가 가능성이 제기됨.', impact_score: 0.82 },
-    { timestamp: new Date('2014-12-05T13:00'), region: '부산', event_type: '강풍', headline: '부산 강풍주의보', summary: '항만 물류 운영 차질 우려가 보도됨.', impact_score: 0.54 },
-    { timestamp: new Date('2014-12-06T07:00'), region: '대구경북', event_type: '대설', headline: '대구경북 대설 예보', summary: '출근 시간대 전력 수요 변화 가능성이 언급됨.', impact_score: 0.67 },
-    { timestamp: new Date('2014-12-08T18:00'), region: '광주전남', event_type: '폭우', headline: '광주전남 집중호우 영향', summary: '산업시설 운영 패턴 변동 가능성이 보도됨.', impact_score: 0.49 },
-    { timestamp: new Date('2014-12-10T08:00'), region: '서울', event_type: '정책', headline: '동절기 에너지 절감 대책 발표', summary: '피크 시간대 사용량 분산 정책이 발표됨.', impact_score: 0.58 },
-    { timestamp: new Date('2014-12-12T10:00'), region: '경기', event_type: '산업', headline: '경기권 산업단지 운영 조정', summary: '일부 제조시설 가동 조정에 따라 전력 수요 변동 가능성이 제기됨.', impact_score: 0.61 },
-    { timestamp: new Date('2014-12-14T14:00'), region: '인천', event_type: '정비', headline: '인천 설비 정기점검 계획', summary: '설비 점검 일정으로 단기 부하 감소 가능성이 보도됨.', impact_score: 0.45 },
-    { timestamp: new Date('2014-12-16T09:00'), region: '강원', event_type: '한파', headline: '강원 한파경보 강화', summary: '난방 수요 집중으로 지역 부하 상승 가능성이 큼.', impact_score: 0.76 },
-    { timestamp: new Date('2014-12-18T11:00'), region: '충북', event_type: '폭설', headline: '충북 폭설 대비 비상체계', summary: '교통 차질과 설비 부하 변동 가능성이 함께 언급됨.', impact_score: 0.63 },
-    { timestamp: new Date('2014-12-20T15:00'), region: '대전충남', event_type: '정책', headline: '대전충남 동절기 수요관리 강화', summary: '산업체 대상 전력 절감 권고가 발표됨.', impact_score: 0.52 },
-    { timestamp: new Date('2014-12-22T10:00'), region: '경남', event_type: '산업', headline: '경남 제조업 생산 조정', summary: '생산 스케줄 조정으로 시간대별 수요 재분배 가능성이 제기됨.', impact_score: 0.59 },
-    { timestamp: new Date('2014-12-24T08:00'), region: '제주특별지사', event_type: '기상', headline: '제주 강풍 및 해상 기상 악화', summary: '기상 악화로 일부 설비 운영 패턴 변동 가능성이 있음.', impact_score: 0.47 },
-    { timestamp: new Date('2014-12-26T13:00'), region: '전북', event_type: '정비', headline: '전북 지역 설비 점검 확대', summary: '정기 정비 영향으로 일부 시설의 단기 부하 감소 가능성이 있음.', impact_score: 0.43 },
-    { timestamp: new Date('2014-12-27T17:00'), region: '남서울', event_type: '산업', headline: '남서울권 상업시설 수요 집중', summary: '연말 상업활동 증가로 저녁 시간대 수요 피크 가능성이 제기됨.', impact_score: 0.66 },
-  ]
+  const newsData = generateNewsData()
 
   _cache = { loadDf: loadRows, weatherDf: weatherRows, newsDf: newsData }
   return _cache
