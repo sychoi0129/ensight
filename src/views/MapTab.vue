@@ -1,11 +1,11 @@
 <template>
   <div>
     <div class="row" style="gap:14px;">
-      <div class="col-2 panel">
+      <div class="panel" style="flex:1.2; min-width:0;">
         <div class="section-label">지역별 평균 전력 수요</div>
-        <div ref="mapEl" style="width:100%; height:420px;"></div>
+        <div ref="mapEl" style="width:100%; height:380px;"></div>
       </div>
-      <div class="col-1 panel">
+      <div class="panel" style="flex:1.8; min-width:0;">
         <div class="section-label">지역 랭킹</div>
         <div ref="barEl" style="width:100%; height:420px;"></div>
       </div>
@@ -20,8 +20,8 @@ const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
 const barEl = ref(null)
 
-const BASE = { paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#0a0a0f', font:{family:'Pretendard',color:'#9090b8',size:10}, margin:{l:8,r:8,t:12,b:8} }
-const HOVER = { bgcolor:'#141420', bordercolor:'#2a2a3e', font:{color:'#f0f0f5',size:11} }
+const BASE = { paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#ffffff', font:{family:'Pretendard',color:'#8898aa',size:10}, margin:{l:8,r:8,t:12,b:8} }
+const HOVER = { bgcolor:'#ffffff', bordercolor:'#dee2e6', font:{color:'#1a1a2e',size:11} }
 
 async function draw() {
   await nextTick()
@@ -34,24 +34,24 @@ async function draw() {
     lon: props.mapDf.map(r => r.lng),
     text: props.mapDf.map(r => `${r.region}  ${r.avg_load.toFixed(1)} MW`),
     mode: 'markers+text', textposition: 'top center',
-    textfont: { size: 9, color: '#9090b8' },
+    textfont: { size: 9, color: '#8898aa' },
     marker: {
       size: props.mapDf.map(r => Math.max(8, r.avg_load / 5)),
       color: props.mapDf.map(r => r.avg_load),
-      colorscale: [[0,'#14142a'],[0.4,'#5865f2'],[1,'#c0b0ff']],
+      colorscale: [[0,'#e8ebfc'],[0.4,'#5865f2'],[1,'#c0b0ff']],
       showscale: true,
-      colorbar: { title:{text:'MW',font:{color:'#9090b8',size:10}}, thickness:8, len:0.5, tickfont:{color:'#9090b8',size:9} },
-      line: { color: '#2a2a3e', width: 0.5 },
+      colorbar: { title:{text:'MW',font:{color:'#8898aa',size:10}}, thickness:8, len:0.5, tickfont:{color:'#8898aa',size:9} },
+      line: { color: '#c8d0da', width: 0.5 },
     },
     hovertemplate: '%{text}<extra></extra>',
   }], {
     ...BASE, height: 420,
     geo: {
       scope: 'asia', center: { lat: 36.5, lon: 127.8 }, projection: { scale: 18 },
-      showland: true, landcolor: '#141420',
-      showcoastlines: true, coastlinecolor: '#2a2a3e',
+      showland: true, landcolor: '#f0f2f5',
+      showcoastlines: true, coastlinecolor: '#c8d0da',
       showframe: false, bgcolor: 'rgba(0,0,0,0)',
-      showocean: true, oceancolor: '#0a0a0f',
+      showocean: true, oceancolor: '#dde8f0',
     },
     hoverlabel: HOVER,
   })
@@ -63,15 +63,23 @@ async function draw() {
     y: sorted.map(r => r.region),
     marker: {
       color: sorted.map(r => r.avg_load),
-      colorscale: [[0,'#14142a'],[0.4,'#5865f2'],[1,'#c0b0ff']],
+      colorscale: [[0,'#e8ebfc'],[0.4,'#5865f2'],[1,'#c0b0ff']],
       opacity: 0.85,
     },
     hovertemplate: '%{y}: %{x:.1f} MW<extra></extra>',
   }], {
     ...BASE, height: 420,
     margin: { l: 90, r: 16, t: 12, b: 36 },
-    xaxis: { title:{text:'MW',font:{color:'#9090b8',size:10}}, gridcolor:'#1e1e2e', linecolor:'#1e1e2e', tickfont:{color:'#9090b8',size:10} },
-    yaxis: { automargin:true, gridcolor:'#1e1e2e', linecolor:'#1e1e2e', tickfont:{color:'#c8c8e0',size:11} },
+    xaxis: {
+      title:{text:'MW',font:{color:'#8898aa',size:10}},
+      range: [
+        Math.min(...sorted.map(r => r.avg_load)) * 0.95,
+        Math.max(...sorted.map(r => r.avg_load)) * 1.02,
+      ],
+      gridcolor:'#e9ecef',
+      linecolor:'#dee2e6',
+      tickfont:{color:'#8898aa',size:10} },
+    yaxis: { automargin:true, gridcolor:'#e9ecef', linecolor:'#dee2e6', tickfont:{color:'#4a5568',size:11} },
     hoverlabel: HOVER,
   })
 }

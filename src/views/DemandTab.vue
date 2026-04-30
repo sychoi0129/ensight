@@ -1,3 +1,5 @@
+import XaiTab from '@/views/XaiTab.vue'
+
 <template>
   <div>
     <!-- 토글 -->
@@ -37,10 +39,6 @@
             </div>
           </div>
         </div>
-        <div class="panel" style="flex:0 0 auto;">
-          <div class="section-label">예측 12step 분포</div>
-          <div ref="barEl" style="width:100%; height:120px;"></div>
-        </div>
       </div>
     </div>
   </div>
@@ -50,17 +48,17 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 
 const props = defineProps({
-  histDf:     { type: Array, default: () => [] },
+  histDf: { type: Array, default: () => [] },
   forecastDf: { type: Array, default: () => [] },
-  newsView:   { type: Array, default: () => [] },
-  horizon:    { type: Number, default: 12 },
+  newsView: { type: Array, default: () => [] },
+  horizon: { type: Number, default: 12 },
+  xaiResult: { type: Object, default: () => ({ text: '', factors: [] }) },
 })
 
 const showCi  = ref(true)
 const showNews = ref(true)
 const chartEl = ref(null)
 const gaugeEl = ref(null)
-const barEl   = ref(null)
 
 const predMean = computed(() =>
   props.forecastDf.length
@@ -72,12 +70,12 @@ const predMin = computed(() => props.forecastDf.length ? Math.min(...props.forec
 
 const BASE = {
   paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor: '#0a0a0f',
-  font: { family: 'Pretendard', color: '#9090b8', size: 10 },
+  plot_bgcolor: '#ffffff',
+  font: { family: 'Pretendard', color: '#8898aa', size: 10 },
   margin: { l: 48, r: 16, t: 12, b: 36 },
 }
-const AXIS = { gridcolor: '#1e1e2e', linecolor: '#1e1e2e', zerolinecolor: '#1e1e2e', tickfont: { color: '#9090b8', size: 10 } }
-const HOVER = { bgcolor: '#141420', bordercolor: '#2a2a3e', font: { color: '#f0f0f5', size: 11 } }
+const AXIS = { gridcolor: '#e9ecef', linecolor: '#dee2e6', zerolinecolor: '#dee2e6', tickfont: { color: '#8898aa', size: 10 } }
+const HOVER = { bgcolor: '#ffffff', bordercolor: '#dee2e6', font: { color: '#1a1a2e', size: 11 } }
 
 async function draw() {
   await nextTick()
@@ -98,7 +96,7 @@ async function draw() {
       x: props.forecastDf.map(r => toISO(r.timestamp)),
       y: props.forecastDf.map(r => r.prediction),
       mode: 'lines', name: '예측값',
-      line: { color: '#c0b0ff', width: 2, dash: 'dot' },
+      line: { color: '#5e72e4', width: 2, dash: 'dot' },
       hovertemplate: '%{x|%m/%d %H:%M}  %{y:.1f}<extra></extra>',
     },
   ]
@@ -108,7 +106,7 @@ async function draw() {
     traces.push({
       x: [...fwd.map(r => toISO(r.timestamp)), ...rev.map(r => toISO(r.timestamp))],
       y: [...fwd.map(r => r.upper), ...rev.map(r => r.lower)],
-      fill: 'toself', fillcolor: 'rgba(192,176,255,0.06)',
+      fill: 'toself', fillcolor: 'rgba(94,114,228,0.08)',
       line: { width: 0 }, name: '신뢰구간', hoverinfo: 'skip',
     })
   }
@@ -128,8 +126,8 @@ async function draw() {
   P.react(chartEl.value, traces, {
     ...BASE, height: 340,
     xaxis: AXIS,
-    yaxis: { ...AXIS, title: { text: 'MW', font: { color: '#9090b8', size: 10 } } },
-    legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 10, color: '#9090b8' }, x: 0, y: 1.05, orientation: 'h' },
+    yaxis: { ...AXIS, type: 'linear', title: { text: 'MW', font: { color: '#8898aa', size: 10 } } },
+    legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 10, color: '#8898aa' }, x: 0, y: 1.05, orientation: 'h' },
     hoverlabel: HOVER,
   })
 
@@ -138,39 +136,18 @@ async function draw() {
     P.react(gaugeEl.value, [{
       type: 'indicator', mode: 'gauge+number',
       value: predMean.value,
-      number: { font: { color: '#c0b0ff', size: 32, family: 'JetBrains Mono' }, suffix: '' },
+      number: { font: { color: '#5e72e4', size: 32, family: 'JetBrains Mono' }, suffix: '' },
       gauge: {
-        axis: { range: [predMin.value * 0.9, predMax.value * 1.1], tickcolor: '#2a2a3e', tickfont: { color: '#9090b8', size: 9 } },
+        axis: { range: [predMin.value * 0.9, predMax.value * 1.1], tickcolor: '#c8d0da', tickfont: { color: '#8898aa', size: 9 } },
         bar: { color: '#5865f2', thickness: 0.5 },
-        bgcolor: '#0a0a0f', bordercolor: '#1e1e2e', borderwidth: 1,
+        bgcolor: '#f8f9fa', bordercolor: '#dee2e6', borderwidth: 1,
         steps: [
-          { range: [predMin.value * 0.9, predMean.value], color: '#14141e' },
-          { range: [predMean.value, predMax.value * 1.1], color: '#0f0f18' },
+          { range: [predMin.value * 0.9, predMean.value], color: '#eef0f3' },
+          { range: [predMean.value, predMax.value * 1.1], color: '#f4f5f7' },
         ],
         threshold: { line: { color: '#f87171', width: 2 }, thickness: 0.8, value: predMax.value },
       },
-    }], { ...BASE, height: 200, margin: { l: 20, r: 20, t: 10, b: 10 } })
-  }
-
-  // 예측 바
-  if (barEl.value && props.forecastDf.length) {
-    P.react(barEl.value, [{
-      x: props.forecastDf.map((_, i) => `+${i+1}h`),
-      y: props.forecastDf.map(r => Number(r.prediction)),
-      type: 'bar',
-      marker: {
-        color: props.forecastDf.map(r => r.prediction),
-        colorscale: [[0, '#14142a'], [1, '#5865f2']],
-        opacity: 0.85,
-      },
-      hovertemplate: '%{x}: %{y:.1f}<extra></extra>',
-    }], {
-      ...BASE, height: 120,
-      margin: { l: 36, r: 8, t: 8, b: 28 },
-      xaxis: { ...AXIS, tickfont: { color: '#9090b8', size: 9 } },
-      yaxis: { ...AXIS, tickfont: { color: '#9090b8', size: 9 } },
-      hoverlabel: HOVER,
-    })
+    }], { ...BASE, height: 200, margin: { l: 20, r: 20, t: 50, b: 10 } })
   }
 }
 

@@ -49,17 +49,17 @@ async function draw() {
   P.react(barEl.value, [{
     x: s.map(f => f.importance), y: s.map(f => f.factor),
     orientation: 'h', type: 'bar',
-    marker: { color: s.map(f => f.importance >= 0.5 ? '#f87171' : f.importance >= 0.3 ? '#facc15' : '#4ade80'), opacity: 0.8 },
+    marker: { color: s.map(f => f.importance >= 0.5 ? '#f87171' : f.importance >= 0.3 ? '#fb6340' : '#2dce89'), opacity: 0.8 },
     text: s.map(f => `${(f.importance*100).toFixed(0)}%`),
-    textposition: 'outside', textfont: { size: 10, color: '#9090b8' },
+    textposition: 'outside', textfont: { size: 10, color: '#8898aa' },
     hovertemplate: '%{y}: %{x:.0%}<extra></extra>',
   }], {
-    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#0a0a0f',
-    font:{family:'Pretendard',color:'#9090b8',size:10},
+    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#ffffff',
+    font:{family:'Pretendard',color:'#8898aa',size:10},
     margin:{l:140,r:60,t:8,b:24}, height:200, bargap:0.5,
-    xaxis:{range:[0,1.2],tickformat:'.0%',gridcolor:'#1e1e2e',linecolor:'#1e1e2e',tickfont:{color:'#9090b8',size:9}},
-    yaxis:{gridcolor:'#1e1e2e',linecolor:'#1e1e2e',tickfont:{color:'#c8c8e0',size:11}},
-    hoverlabel:{bgcolor:'#141420',bordercolor:'#2a2a3e',font:{color:'#f0f0f5',size:11}},
+    xaxis:{range:[0,1.2],tickformat:'.0%',gridcolor:'#e9ecef',linecolor:'#dee2e6',tickfont:{color:'#8898aa',size:9}},
+    yaxis:{gridcolor:'#e9ecef',linecolor:'#dee2e6',tickfont:{color:'#4a5568',size:11}},
+    hoverlabel:{bgcolor:'#ffffff',bordercolor:'#dee2e6',font:{color:'#1a1a2e',size:11}},
   })
 }
 

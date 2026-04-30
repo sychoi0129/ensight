@@ -34,9 +34,9 @@ const metric        = computed(() => WEATHER_METRIC_MAP[selectedLabel.value])
 const dualEl    = ref(null)
 const scatterEl = ref(null)
 
-const BASE = { paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#0a0a0f', font:{family:'Pretendard',color:'#9090b8',size:10}, margin:{l:48,r:48,t:12,b:36} }
-const AXIS = { gridcolor:'#1e1e2e', linecolor:'#1e1e2e', zerolinecolor:'#1e1e2e', tickfont:{color:'#9090b8',size:10} }
-const HOVER = { bgcolor:'#141420', bordercolor:'#2a2a3e', font:{color:'#f0f0f5',size:11} }
+const BASE = { paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#ffffff', font:{family:'Pretendard',color:'#8898aa',size:10}, margin:{l:48,r:48,t:12,b:36} }
+const AXIS = { gridcolor:'#e9ecef', linecolor:'#dee2e6', zerolinecolor:'#dee2e6', tickfont:{color:'#8898aa',size:10} }
+const HOVER = { bgcolor:'#ffffff', bordercolor:'#dee2e6', font:{color:'#1a1a2e',size:11} }
 
 async function draw() {
   await nextTick()
@@ -62,9 +62,9 @@ async function draw() {
   ], {
     ...BASE, height: 300,
     xaxis: { ...AXIS, type: 'date' },
-    yaxis: { ...AXIS, title: { text: selectedLabel.value, font: { color: '#9090b8', size: 10 } } },
-    yaxis2: { ...AXIS, title: { text: 'MW', font: { color: '#9090b8', size: 10 } }, overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' },
-    legend: { orientation: 'h', y: 1.05, bgcolor: 'rgba(0,0,0,0)', font: { size: 10, color: '#9090b8' } },
+    yaxis: { ...AXIS, type: 'linear', title: { text: selectedLabel.value, font: { color: '#8898aa', size: 10 } } },
+    yaxis2: { ...AXIS, type: 'linear', title: { text: 'MW', font: { color: '#8898aa', size: 10 } }, overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' },
+    legend: { orientation: 'h', y: 1.05, bgcolor: 'rgba(0,0,0,0)', font: { size: 10, color: '#8898aa' } },
     hoverlabel: HOVER,
   })
 
@@ -82,13 +82,13 @@ async function draw() {
   const xmin = Math.min(...xv), xmax = Math.max(...xv)
 
   P.react(scatterEl.value, [
-    { x: xv, y: yv, mode: 'markers', marker: { color: '#5865f2', opacity: 0.3, size: 4 }, name: '데이터' },
-    { x: [xmin,xmax], y: [m*xmin+b, m*xmax+b], mode: 'lines', line: { color: '#c0b0ff', width: 1.5, dash: 'dot' }, name: '추세선' },
+    { x: xv, y: yv, mode: 'markers', marker: { color: '#5e72e4', opacity: 0.25, size: 4 }, name: '데이터' },
+    { x: [xmin,xmax], y: [m*xmin+b, m*xmax+b], mode: 'lines', line: { color: '#5e72e4', width: 1.5, dash: 'dot' }, name: '추세선' },
   ], {
     ...BASE, height: 240,
-    xaxis: { ...AXIS, title: { text: selectedLabel.value, font:{color:'#9090b8',size:10} } },
-    yaxis: { ...AXIS, title: { text: 'MW', font:{color:'#9090b8',size:10} } },
-    legend: { bgcolor:'rgba(0,0,0,0)', font:{size:10,color:'#9090b8'} },
+    xaxis: { ...AXIS, title: { text: selectedLabel.value, font:{color:'#8898aa',size:10} } },
+    yaxis: { ...AXIS, type: 'linear', title: { text: 'MW', font:{color:'#8898aa',size:10} } },
+    legend: { bgcolor:'rgba(0,0,0,0)', font:{size:10,color:'#8898aa'} },
     hoverlabel: HOVER,
   })
 }
