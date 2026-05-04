@@ -9,7 +9,7 @@
     <div class="col-1">
       <div class="panel" style="margin-bottom:12px;">
         <div class="section-label">요인 중요도</div>
-        <div ref="barEl" style="width:100%; height:160px;"></div>
+        <div ref="barEl" :style="{ width: '100%', height: `${barHeight}px` }"></div>
       </div>
       <div class="panel">
         <div class="section-label">뉴스 이벤트 (상위 3건)</div>
@@ -44,6 +44,17 @@ const topNews = computed(() =>
   [...props.newsView].sort((a, b) => b.impact_score - a.impact_score).slice(0, 3)
 )
 
+const visibleFactors = computed(() =>
+  [...(props.xaiResult.factors ?? [])]
+    .sort((a, b) => b.importance - a.importance)
+    .slice(0, 12),
+)
+
+const barHeight = computed(() => {
+  const n = Math.max(visibleFactors.value.length, 4)
+  return 24 + n * 24
+})
+
 const formattedText = computed(() => {
   if (!props.xaiResult.text) return ''
   return props.xaiResult.text
@@ -67,10 +78,10 @@ const fmt = d => {
 
 async function draw() {
   await nextTick()
-  if (!barEl.value || !props.xaiResult.factors.length) return
+  if (!barEl.value || !visibleFactors.value.length) return
   if (!barChart) barChart = echarts.init(barEl.value)
 
-  const s = [...props.xaiResult.factors].sort((a, b) => a.importance - b.importance)
+  const s = [...visibleFactors.value].sort((a, b) => a.importance - b.importance)
   const maxImp = Math.max(...s.map(f => f.importance))
 
   const colors = s.map(f => {
@@ -104,12 +115,13 @@ async function draw() {
       borderRadius: 8,
       padding: [8, 12],
       textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
-      formatter: p => `<b>${p.name}</b><br><span style="color:#c0b0ff;">${p.value.toFixed(4)}</span>`,
+      formatter: p => `<b>${p.name}</b><br><span style="color:#c0b0ff;">${Number(p.value).toLocaleString('ko-KR')}건</span>`,
     },
     series: [{
       type: 'bar',
       data: s.map((f, i) => ({ value: f.importance, itemStyle: { color: colors[i], borderRadius: [0, 4, 4, 0] } })),
-      barMaxWidth: 18,
+      barMaxWidth: 12,
+      barCategoryGap: '45%',
       label: { show: false },
     }],
   }, true)
@@ -119,4 +131,5 @@ onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => barChart?.dispose())
 watch(() => props.xaiResult, () => setTimeout(draw, 50), { deep: true })
 watch(() => props.newsView,  () => setTimeout(draw, 50))
+watch(barHeight, () => setTimeout(draw, 50))
 </script>

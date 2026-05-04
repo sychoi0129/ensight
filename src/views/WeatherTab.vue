@@ -27,6 +27,7 @@ import * as echarts from 'echarts'
 const props = defineProps({
   weatherView: { type: Array, default: () => [] },
   histDf:      { type: Array, default: () => [] },
+  powerUnit:   { type: String, default: 'MW' },
 })
 
 const metricLabels  = Object.keys(WEATHER_METRIC_MAP)
@@ -58,7 +59,7 @@ async function draw() {
     legend: {
       top: 6, left: 0, itemWidth: 24, itemHeight: 3,
       textStyle: { color: '#8898aa', fontSize: 11, fontFamily: 'Pretendard' },
-      data: [selectedLabel.value, '전력 사용량'],
+      data: [selectedLabel.value, `전력 (${props.powerUnit})`],
     },
     xAxis: {
       type: 'time',
@@ -82,7 +83,7 @@ async function draw() {
         splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
       },
       {
-        type: 'value', name: 'W',
+        type: 'value', name: props.powerUnit,
         nameTextStyle: { color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard' },
         axisLine: { show: false }, axisTick: { show: false },
         axisLabel: { color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard' },
@@ -98,11 +99,15 @@ async function draw() {
         const d = new Date(params[0].value[0])
         const p = n => String(n).padStart(2,'0')
         const timeStr = `${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+        const fmtVal = (seriesName, val) => {
+          const isPower = String(seriesName).includes('전력')
+          return isPower ? val.toFixed(2) : val.toFixed(1)
+        }
         return `<div style="font-weight:700;margin-bottom:6px;color:#c8c8e0;">${timeStr}</div>` +
-          params.map(p => `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};"></span>
-            <span style="color:#a0a0c0;">${p.seriesName}</span>
-            <b style="margin-left:auto;">${p.value[1].toFixed(1)}</b>
+          params.map(pa => `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${pa.color};"></span>
+            <span style="color:#a0a0c0;">${pa.seriesName}</span>
+            <b style="margin-left:auto;">${fmtVal(pa.seriesName, pa.value[1])}</b>
           </div>`).join('')
       },
     },
@@ -112,7 +117,7 @@ async function draw() {
         type: 'line', yAxisIndex: 0,
         data: props.weatherView.map(r => [r.timestamp, r[metric.value]]),
         symbol: 'none',
-        lineStyle: { color: '#2dce89', width: 2 },
+        lineStyle: { color: '#2dce89', width: 2, type: 'dashed' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: 'rgba(45,206,137,0.15)' },
@@ -122,11 +127,11 @@ async function draw() {
         smooth: 0.3,
       },
       {
-        name: '전력 사용량',
+        name: `전력 (${props.powerUnit})`,
         type: 'line', yAxisIndex: 1,
         data: props.histDf.map(r => [r.timestamp, r.power_usage]),
         symbol: 'none',
-        lineStyle: { color: '#5e72e4', width: 1.5, type: 'dashed' },
+        lineStyle: { color: '#5e72e4', width: 1.5 },
         smooth: 0.3,
         opacity: 0.7,
       },
@@ -163,7 +168,7 @@ async function draw() {
       splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     yAxis: {
-      type: 'value', name: 'W',
+      type: 'value', name: props.powerUnit,
       nameTextStyle: { color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard' },
       axisLine: { show: false }, axisTick: { show: false },
       axisLabel: { color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard' },
@@ -172,7 +177,7 @@ async function draw() {
     tooltip: {
       trigger: 'item',
       ...TOOLTIP_STYLE,
-      formatter: p => `<b style="font-size:13px;">${p.value[1].toFixed(1)}</b> W<br>
+      formatter: p => `<b style="font-size:13px;">${p.value[1].toFixed(2)}</b> ${props.powerUnit}<br>
                        <span style="color:#a0a0c0;">${selectedLabel.value}: ${p.value[0].toFixed(1)}</span>`,
     },
     series: [
@@ -198,5 +203,5 @@ async function draw() {
 
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => { dualChart?.dispose(); scatterChart?.dispose() })
-watch([() => props.weatherView, () => props.histDf, selectedLabel], draw)
+watch([() => props.weatherView, () => props.histDf, () => props.powerUnit, selectedLabel], draw)
 </script>
