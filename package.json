@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start" : "serve -s dist -l 4173"
   },
   "dependencies": {
     "echarts": "^6.0.0",
