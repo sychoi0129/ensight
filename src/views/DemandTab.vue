@@ -1,13 +1,14 @@
 <template>
   <div>
+    <!-- 토글 -->
     <div style="display:flex; gap:16px; margin-bottom:14px;">
       <label class="toggle-wrap">
-        <input type="checkbox" checked disabled />
+        <input type="checkbox" v-model="showCi" />
         <span class="toggle-track"><span class="toggle-thumb"></span></span>
         신뢰구간
       </label>
       <label class="toggle-wrap">
-        <input type="checkbox" checked disabled />
+        <input type="checkbox" v-model="showNews" />
         <span class="toggle-track"><span class="toggle-thumb"></span></span>
         뉴스 오버레이
       </label>
@@ -50,9 +51,15 @@
               <tbody>
                 <tr v-for="(row, i) in forecastRows" :key="row.ts" style="border-bottom:1px solid var(--border);">
                   <td style="padding:7px 8px; color:var(--text3); font-family:var(--mono); font-size:11px;">
-                    +{{ i + 1 }}h ({{ row.ts.slice(11, 16) }})
+                    +{{ i + 1 }}h
                   </td>
-                  <td style="padding:7px 8px; text-align:right; font-family:var(--mono); font-weight:600;">
+                  <td style="padding:7px 8px; text-align:right; font-family:var(--mono); font-weight:600;"
+                    :style="{
+                      color: Number(row.pred_1_step) === Number(predMax) ? '#f5365c'
+                          : Number(row.pred_1_step) === Number(predMin) ? '#2dce89'
+                          : 'var(--text1)'
+                    }"
+                  >
                     {{ formatValue(row.pred_1_step) }}
                   </td>
                   <td style="padding:7px 8px; text-align:right; color:var(--text3); font-family:var(--mono); font-size:11px;">
@@ -63,21 +70,11 @@
             </table>
           </div>
         </div>
-
-        <div class="panel">
-          <div class="section-label">Metrics</div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
-            <div>MAE 1-step: <b>{{ formatValue(metrics.mae_1_step) }}</b></div>
-            <div>RMSE 1-step: <b>{{ formatValue(metrics.rmse_1_step) }}</b></div>
-            <div>MAE 24-step: <b>{{ formatValue(metrics.mae_24_step) }}</b></div>
-            <div>RMSE 24-step: <b>{{ formatValue(metrics.rmse_24_step) }}</b></div>
-            <div>총 충전량: <b>{{ formatValue(metrics.total_charge_kwh) }}</b></div>
-            <div>총 방전량: <b>{{ formatValue(metrics.total_discharge_kwh) }}</b></div>
-            <div>평균 SOC: <b>{{ formatValue(metrics.avg_soc) }}</b></div>
-            <div>피크 감소량: <b>{{ formatValue(metrics.peak_reduction) }}</b></div>
-          </div>
-        </div>
       </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <XaiTab :xai-result="xaiResult" :news-view="newsView" />
     </div>
   </div>
 </template>
@@ -85,22 +82,57 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import XaiTab from '@/views/XaiTab.vue'
 
 const props = defineProps({
   series:       { type: Array, default: () => [] },
-  metrics:      { type: Object, default: () => ({}) },
+  newsView:     { type: Array, default: () => [] },
+  xaiResult:    { type: Object, default: () => ({ text: '', factors: [] }) },
+  selectedDate: { type: String, default: '' },
   selectedTime: { type: String, default: '00:00' },
   isLoading:    { type: Boolean, default: false },
 })
 
 const chartEl = ref(null)
 let chart = null
+const showCi = ref(true)
+const showNews = ref(true)
+
+const sortedSeries = computed(() =>
+  [...props.series].sort((a, b) => new Date(a.ts) - new Date(b.ts))
+)
+
+const anchorIndex = computed(() =>
+  sortedSeries.value.findIndex(
+    (row) => row.ts.slice(0, 10) === props.selectedDate && row.ts.slice(11, 16) === props.selectedTime
+  )
+)
+
+const histRows = computed(() => {
+  if (!sortedSeries.value.length) return []
+  const idx = anchorIndex.value >= 0 ? anchorIndex.value : sortedSeries.value.length - 1
+  const startIdx = Math.max(0, idx - 167)
+  return sortedSeries.value.slice(startIdx, idx + 1)
+})
 
 const forecastRows = computed(() => {
-  if (!props.series.length) return []
-  const idx = props.series.findIndex((row) => row.ts.slice(11, 16) === props.selectedTime)
-  const startIdx = idx >= 0 ? idx : 0
-  return props.series.slice(startIdx, startIdx + 12)
+  if (!sortedSeries.value.length) return []
+  const idx = anchorIndex.value >= 0 ? anchorIndex.value : sortedSeries.value.length - 1
+  const startIdx = Math.min(sortedSeries.value.length, idx + 1)
+  return sortedSeries.value.slice(startIdx, startIdx + 12)
+})
+
+const forecastPlotRows = computed(() => {
+  if (!forecastRows.value.length) return []
+  const lastHist = histRows.value[histRows.value.length - 1]
+  if (!lastHist) return forecastRows.value
+  return [
+    {
+      ts: lastHist.ts,
+      pred_1_step: lastHist.actual,
+    },
+    ...forecastRows.value,
+  ]
 })
 
 const predMean = computed(() => {
@@ -128,54 +160,75 @@ function formatValue(value) {
 }
 
 function buildOption() {
-  if (!props.series.length) {
+  if (!sortedSeries.value.length) {
     return { xAxis: { type: 'time' }, yAxis: { type: 'value' }, series: [] }
   }
 
-  const values = props.series.flatMap((row) => [
-    row.actual,
-    row.pred_1_step,
-    row.pred_24_step,
-    row.rt_result,
-  ]).filter(Number.isFinite)
+  const values = [...histRows.value, ...forecastRows.value]
+    .flatMap((row) => [row.actual, row.pred_1_step])
+    .filter(Number.isFinite)
 
   const yMin = Math.min(...values) * 0.97
-  const yMax = Math.max(...values) * 1.03
+  const yMax = Math.max(...values, ...(showCi.value ? forecastRows.value.map((r) => (r.pred_1_step ?? 0) + 6) : [])) * 1.03
 
   const series = [
     {
-      name: 'actual',
+      name: '과거 사용량',
       type: 'line',
-      data: props.series.map((row) => [row.ts, row.actual]),
+      data: histRows.value.map((row) => [row.ts, row.actual]),
       symbol: 'none',
       lineStyle: { color: '#5e72e4', width: 2 },
-      smooth: 0.25,
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(94,114,228,0.2)' },
+          { offset: 1, color: 'rgba(94,114,228,0.01)' },
+        ]),
+      },
+      smooth: 0.08,
     },
     {
-      name: 'pred_1_step',
+      name: '예측값',
       type: 'line',
-      data: props.series.map((row) => [row.ts, row.pred_1_step]),
+      data: forecastPlotRows.value.map((row) => [row.ts, row.pred_1_step]),
       symbol: 'none',
-      lineStyle: { color: '#11cdef', width: 2, type: 'dashed' },
-      smooth: 0.25,
-    },
-    {
-      name: 'pred_24_step',
-      type: 'line',
-      data: props.series.map((row) => [row.ts, row.pred_24_step]),
-      symbol: 'none',
-      lineStyle: { color: '#fb6340', width: 2, type: 'dotted' },
-      smooth: 0.25,
-    },
-    {
-      name: 'rt_result',
-      type: 'line',
-      data: props.series.map((row) => [row.ts, row.rt_result]),
-      symbol: 'none',
-      lineStyle: { color: '#2dce89', width: 2 },
-      smooth: 0.25,
+      lineStyle: { color: '#11cdef', width: 2.5, type: 'dashed' },
+      areaStyle: showCi.value ? {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(17,205,239,0.12)' },
+          { offset: 1, color: 'rgba(17,205,239,0.01)' },
+        ]),
+      } : undefined,
+      smooth: 0.08,
     },
   ]
+
+  if (showCi.value && forecastRows.value.length) {
+    series.push({
+      name: '신뢰구간',
+      type: 'line',
+      data: forecastRows.value.map((row) => [row.ts, (row.pred_1_step ?? 0) + 6]),
+      lineStyle: { opacity: 0 },
+      areaStyle: { color: 'rgba(17,205,239,0.05)', origin: 'auto' },
+      symbol: 'none',
+      silent: true,
+      showInLegend: false,
+    })
+  }
+
+  if (showNews.value && props.newsView.length) {
+    series.push({
+      name: '뉴스',
+      type: 'scatter',
+      data: props.newsView.map((r) => ({
+        value: [r.timestamp, yMin + (yMax - yMin) * 0.015],
+        headline: r.headline,
+        event_type: r.event_type ?? '뉴스',
+      })),
+      symbol: 'diamond',
+      symbolSize: 12,
+      itemStyle: { color: '#f5365c', borderColor: 'rgba(245,54,92,0.25)', borderWidth: 8 },
+    })
+  }
 
   return {
     backgroundColor: 'transparent',
@@ -213,6 +266,11 @@ function buildOption() {
       textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
       axisPointer: { lineStyle: { color: '#dee2e6', type: 'dashed' } },
       formatter: params => {
+        const news = params.find((p) => p.seriesName === '뉴스')
+        if (news) {
+          return `<div style="font-weight:700;margin-bottom:4px;">${news.data.event_type}</div>
+                  <div style="font-size:11px;color:#c0c0d8;">${news.data.headline}</div>`
+        }
         if (!params.length) return ''
         const d = new Date(params[0].value[0])
         return `<div style="font-weight:700;margin-bottom:6px;color:#c8c8e0;">${fmtTime(d)}</div>` +
@@ -238,5 +296,5 @@ async function draw() {
 
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => chart?.dispose())
-watch([() => props.series, () => props.selectedTime, () => props.isLoading], draw, { deep: true })
+watch([() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, () => props.newsView, showCi, showNews], draw, { deep: true })
 </script>

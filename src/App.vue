@@ -84,11 +84,11 @@
         <div class="kpi-card info">
           <div class="kpi-card-inner">
             <div>
-              <div class="kpi-tag">평균 SOC</div>
-              <div class="kpi-value">{{ avgSoc }}</div>
-              <div class="kpi-unit">· metrics 기준</div>
+              <div class="kpi-tag">평균 기온</div>
+              <div class="kpi-value">{{ avgTemp }}°</div>
+              <div class="kpi-unit">°C · 선택 구간 평균</div>
             </div>
-            <div class="kpi-icon blue"><img :src="tempIcon" alt="평균 SOC" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="tempIcon" alt="평균 기온" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card alert">
@@ -113,7 +113,9 @@
         <DemandTab
           v-else-if="activeTab === 'demand'"
           :series="compareSeries"
-          :metrics="compareMetrics"
+          :news-view="newsViewForDemand"
+          :xai-result="xaiResultForDemand"
+          :selected-date="selectedDate"
           :selected-time="selectedTime"
           :is-loading="isLoading"
         />
@@ -121,6 +123,7 @@
           v-else
           :series="compareSeries"
           :metrics="compareMetrics"
+          :selected-date="selectedDate"
           :selected-time="selectedTime"
         />
       </div>
@@ -133,6 +136,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import DemandTab from '@/views/DemandTab.vue'
 import EssTab from '@/views/EssTab.vue'
 import MapTab from '@/views/MapTab.vue'
+import { summarizeXai } from '@/composables/useXai'
 import { REGION_COORDS } from '@/constants/settings'
 import powerIcon from '@/assets/images/icons/power.png'
 import peakIcon from '@/assets/images/icons/peak.png'
@@ -150,6 +154,7 @@ const activeTab = ref("demand")
 const compareSeries = ref([])
 const compareMetrics = ref({})
 const newsRows = ref([])
+const weatherRows = ref([])
 const regionalMapDf = ref([])
 const apiError = ref("")
 const isLoading = ref(false)
@@ -179,12 +184,18 @@ const tabs = [
 const currentTabLabel = computed(() => tabs.find((tab) => tab.key === activeTab.value)?.label ?? "대시보드")
 
 const availableTimes = computed(() =>
-  [...new Set(compareSeries.value.map((row) => row.ts.slice(11, 16)))].sort()
+  [...new Set(
+    compareSeries.value
+      .filter((row) => row.ts.slice(0, 10) === selectedDate.value)
+      .map((row) => row.ts.slice(11, 16))
+  )].sort()
 )
 
 const selectedSeriesPoint = computed(() => {
   if (!compareSeries.value.length) return null
-  const found = compareSeries.value.find((row) => row.ts.slice(11, 16) === selectedTime.value)
+  const found = compareSeries.value.find(
+    (row) => row.ts.slice(0, 10) === selectedDate.value && row.ts.slice(11, 16) === selectedTime.value
+  )
   return found ?? compareSeries.value[compareSeries.value.length - 1]
 })
 
@@ -200,25 +211,128 @@ const loadPeak = computed(() => {
   return `${Math.max(...compareSeries.value.map((row) => row.actual ?? 0)).toFixed(1)}`
 })
 
-const avgSoc = computed(() => {
-  const value = compareMetrics.value?.avg_soc
+const avgTemp = computed(() => {
+  const getTemp = (row) =>
+    Number(
+      row.temperature ??
+      row.temp ??
+      row.air_temp ??
+      row.ta ??
+      row.mean_temp ??
+      NaN
+    )
+  const vals = weatherRows.value.map(getTemp).filter(Number.isFinite)
+  if (!vals.length) return "—"
+  const value = vals.reduce((acc, v) => acc + v, 0) / vals.length
   return Number.isFinite(value) ? value.toFixed(2) : "—"
 })
 
+function getNewsRowDate(row) {
+  return String(row.date ?? row.target_date ?? row.news_date ?? '').slice(0, 10)
+}
+
+function selectNewsRowsByDate(rows, selectedDateStr) {
+  const rowsOfDay = rows.filter((row) => getNewsRowDate(row) === selectedDateStr)
+  if (rowsOfDay.length) return rowsOfDay
+
+  const candidates = rows
+    .map((row) => ({ row, d: getNewsRowDate(row) }))
+    .filter((item) => item.d && item.d <= selectedDateStr)
+    .sort((a, b) => (a.d < b.d ? 1 : -1))
+
+  if (!candidates.length) return []
+  const fallbackDate = candidates[0].d
+  return rows.filter((row) => getNewsRowDate(row) === fallbackDate)
+}
+
 const newsKeywordCount = computed(() => {
   if (!newsRows.value.length) return "0"
-  const keys = Object.keys(newsRows.value[0] ?? {})
+  const rowsOfDay = selectNewsRowsByDate(newsRows.value, selectedDate.value)
+  if (!rowsOfDay.length) return "0"
+  const keys = Object.keys(rowsOfDay[0] ?? {})
   const keywordLike = keys.filter((key) => key.toLowerCase().includes("keyword") && key.toLowerCase().includes("count"))
   const countLike = keys.filter((key) => key.toLowerCase().includes("count"))
   const targetKeys = keywordLike.length ? keywordLike : countLike
-  if (!targetKeys.length) return String(newsRows.value.length)
+  if (!targetKeys.length) return String(rowsOfDay.length)
 
-  const total = newsRows.value.reduce((sum, row) => {
+  const total = rowsOfDay.reduce((sum, row) => {
     const rowSum = targetKeys.reduce((acc, key) => acc + (Number(row[key]) || 0), 0)
     return sum + rowSum
   }, 0)
   return String(total)
 })
+
+const newsViewForDemand = computed(() => {
+  if (!newsRows.value.length) return []
+  const targetRows = selectNewsRowsByDate(newsRows.value, selectedDate.value)
+  const expanded = []
+
+  targetRows.forEach((row, idx) => {
+    const rowDate = getNewsRowDate(row) || selectedDate.value
+    const timestamp = new Date(`${rowDate}T12:00:00`)
+    const keys = Object.keys(row ?? {})
+    const countColumns = keys.filter((key) =>
+      key.toLowerCase().endsWith('_count') &&
+      !['region_id', 'model_id', 'run_id'].includes(key.toLowerCase())
+    )
+
+    if (countColumns.length) {
+      countColumns.forEach((col) => {
+        const countValue = Number(row[col] ?? 0)
+        if (!Number.isFinite(countValue) || countValue <= 0) return
+        const keyword = col.replace(/_count$/i, '')
+        const impact = Math.max(0.3, Math.min(0.95, countValue / 10))
+        expanded.push({
+          timestamp,
+          headline: `${keyword} 관련 키워드`,
+          event_type: keyword,
+          summary: `해당 키워드 카운트 ${countValue}건`,
+          impact_score: Number(impact.toFixed(2)),
+          keyword,
+        })
+      })
+      return
+    }
+
+    const countValue = Number(
+      row.keyword_count ??
+      row.count ??
+      row.news_count ??
+      row.total_count ??
+      row.keyword_cnt ??
+      1
+    )
+    const impact = Math.max(0.3, Math.min(0.95, countValue / 10))
+    const headline =
+      row.keyword ??
+      row.keyword_name ??
+      row.event_type ??
+      row.category ??
+      `뉴스 키워드 ${idx + 1}`
+    const eventType = String(row.event_type ?? headline ?? '뉴스')
+    expanded.push({
+      timestamp,
+      headline: String(headline),
+      event_type: eventType,
+      summary: `해당 키워드 카운트 ${countValue}건`,
+      impact_score: Number(impact.toFixed(2)),
+      keyword: String(headline),
+    })
+  })
+
+  return expanded.slice(0, 12)
+})
+
+const histDfForXai = computed(() =>
+  compareSeries.value.map((row) => ({
+    timestamp: new Date(row.ts),
+    power_usage: Number(row.actual ?? 0),
+  }))
+)
+
+const xaiResultForDemand = computed(() =>
+  summarizeXai(histDfForXai.value, [], newsViewForDemand.value, 168)
+)
 
 function toDateString(value) {
   const d = new Date(value)
@@ -229,6 +343,12 @@ function toDateString(value) {
 function addDay(dateStr) {
   const d = new Date(`${dateStr}T00:00:00`)
   d.setDate(d.getDate() + 1)
+  return toDateString(d)
+}
+
+function subtractDays(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00`)
+  d.setDate(d.getDate() - days)
   return toDateString(d)
 }
 
@@ -261,12 +381,38 @@ async function fetchRegions() {
   }
 }
 
+async function fetchLatestDate(regionId) {
+  const res = await fetch(`${API_BASE_URL}/api/latest-date?region_id=${regionId}`)
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(`latest-date API failed (${res.status}): ${txt}`)
+  }
+  const data = await res.json()
+  return data.latest_date ?? null
+}
+
+async function setLatestDateForRegion() {
+  if (!selectedRegionId.value) return
+  try {
+    const latestDate = await fetchLatestDate(selectedRegionId.value)
+    if (latestDate) {
+      selectedDate.value = latestDate
+    } else if (!selectedDate.value) {
+      selectedDate.value = toDateString(new Date())
+    }
+  } catch (err) {
+    console.error("Failed to fetch latest date", err)
+    if (!selectedDate.value) selectedDate.value = toDateString(new Date())
+  }
+}
+
 async function fetchNewsCount() {
   if (!selectedRegionId.value || !selectedDate.value) return
+  const startDate = subtractDays(selectedDate.value, 6)
   const endDate = addDay(selectedDate.value)
   const url =
     `${API_BASE_URL}/api/news-count?region_id=${selectedRegionId.value}` +
-    `&start=${selectedDate.value}&end=${endDate}`
+    `&start=${startDate}&end=${endDate}`
   try {
     const res = await fetch(url)
     if (!res.ok) {
@@ -281,14 +427,36 @@ async function fetchNewsCount() {
   }
 }
 
+async function fetchWeather() {
+  if (!selectedRegionId.value || !selectedDate.value) return
+  const startDate = subtractDays(selectedDate.value, 6)
+  const endDate = addDay(selectedDate.value)
+  const url =
+    `${API_BASE_URL}/api/weather?region_id=${selectedRegionId.value}` +
+    `&start=${startDate}&end=${endDate}`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(`weather API failed (${res.status}): ${txt}`)
+    }
+    const data = await res.json()
+    weatherRows.value = Array.isArray(data) ? data : []
+  } catch (err) {
+    console.error("Failed to fetch weather", err)
+    weatherRows.value = []
+  }
+}
+
 async function fetchCompare() {
   if (!selectedRegionId.value || !selectedDate.value) return
   isLoading.value = true
   apiError.value = ""
+  const startDate = subtractDays(selectedDate.value, 6)
   const endDate = addDay(selectedDate.value)
   const url =
     `${API_BASE_URL}/api/compare?region_id=${selectedRegionId.value}` +
-    `&start=${selectedDate.value}&end=${endDate}`
+    `&start=${startDate}&end=${endDate}`
 
   try {
     const res = await fetch(url)
@@ -348,12 +516,23 @@ async function fetchRegionalStatus() {
 }
 
 onMounted(async () => {
-  selectedDate.value = "2013-01-02"
   await fetchRegions()
-  await Promise.all([fetchCompare(), fetchNewsCount(), fetchRegionalStatus()])
+  await setLatestDateForRegion()
+  if (selectedDate.value && selectedRegionId.value) {
+    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
+  }
 })
 
-watch([selectedRegionId, selectedDate], async () => {
-  await Promise.all([fetchCompare(), fetchNewsCount(), fetchRegionalStatus()])
+watch(selectedRegionId, async () => {
+  const prevDate = selectedDate.value
+  await setLatestDateForRegion()
+  if (selectedDate.value === prevDate && selectedDate.value) {
+    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
+  }
+})
+
+watch(selectedDate, async (newDate, oldDate) => {
+  if (!selectedRegionId.value || !newDate || newDate === oldDate) return
+  await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
 })
 </script>

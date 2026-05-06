@@ -48,3 +48,25 @@ def get_rt_schedule(
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to fetch rt schedule: {exc}") from exc
 
+
+@router.get("/latest-date")
+def get_latest_date(region_id: int = Query(...)) -> dict:
+    sql = text(
+        """
+        SELECT MAX(ts) AS latest_ts
+        FROM capstone.rt_schedule_region_hourly
+        WHERE region_id = :region_id
+          AND pred_1_step IS NOT NULL
+        """
+    )
+
+    try:
+        with SessionLocal() as db:
+            row = db.execute(sql, {"region_id": region_id}).mappings().first()
+        latest_ts = row["latest_ts"] if row else None
+        if latest_ts is None:
+            return {"latest_date": None}
+        return {"latest_date": latest_ts.date().isoformat()}
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch latest date: {exc}") from exc
+

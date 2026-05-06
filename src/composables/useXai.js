@@ -58,12 +58,22 @@ export function summarizeXai(histDf = [], weatherView = [], newsView = [], input
     eventGroups[n.event_type].count += 1
   }
 
-  const factors = Object.entries(eventGroups)
+  let factors = Object.entries(eventGroups)
     .map(([event_type, { sum, count }]) => ({
       factor: event_type,
       importance: +(sum / count).toFixed(4),
     }))
     .sort((a, b) => b.importance - a.importance)
+
+  if (!factors.length) {
+    const range = max(loads) - min(loads)
+    const norm = avgLoad > 0 ? Math.min(1, range / avgLoad) : 0.5
+    factors = [
+      { factor: '전력 부하', importance: +(0.65 + norm * 0.2).toFixed(4) },
+      { factor: '단기 예측 패턴', importance: +(0.52 + norm * 0.18).toFixed(4) },
+      { factor: '추세 변화', importance: +(0.45 + norm * 0.15).toFixed(4) },
+    ]
+  }
 
   // keyword 없는 경우 event_type으로 대체
   const newsLine = topNews.length

@@ -1,13 +1,22 @@
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from decimal import Decimal
 
 from app.api.routes.common import row_to_dict
 from app.core.db import SessionLocal
 
 router = APIRouter()
 
-DATE_COLUMN_CANDIDATES = ("date", "target_date", "news_date")
+DATE_COLUMN_CANDIDATES = ("date", "target_date", "news_date", "target_ts", "ts")
+EXCLUDED_COLUMNS = {
+    "region_id",
+    "model_id",
+    "run_id",
+    "created_at",
+    "updated_at",
+    "id",
+}
 
 
 def _detect_news_date_column(db) -> str | None:
@@ -24,6 +33,68 @@ def _detect_news_date_column(db) -> str | None:
         if candidate in columns:
             return candidate
     return None
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
+
+
+def _expand_news_rows(rows: list[dict], date_col: str | None) -> list[dict]:
+    expanded = []
+    for row in rows:
+        row_dict = row_to_dict(row)
+        row_date = (
+            row_dict.get(date_col) if date_col else
+            row_dict.get("date") or
+            row_dict.get("target_date") or
+            row_dict.get("news_date") or
+            row_dict.get("target_ts") or
+            row_dict.get("ts")
+        )
+        row_date = str(row_date)[:10] if row_date else None
+
+        topic_counts = row_dict.get("topic_counts")
+        if isinstance(topic_counts, dict):
+            for keyword, raw_count in topic_counts.items():
+                if not _is_number(raw_count):
+                    continue
+                count = float(raw_count)
+                if count <= 0:
+                    continue
+                expanded.append(
+                    {
+                        "region_id": row_dict.get("region_id"),
+                        "date": row_date,
+                        "keyword": str(keyword),
+                        "event_type": str(keyword),
+                        "keyword_count": count,
+                    }
+                )
+
+        for col, val in row_dict.items():
+            col_lower = col.lower()
+            if col_lower in EXCLUDED_COLUMNS:
+                continue
+            if col_lower in {"topic_counts", "topic_count_sum"}:
+                continue
+            if col_lower == (date_col or "").lower():
+                continue
+            if not _is_number(val):
+                continue
+            count = float(val)
+            if count <= 0:
+                continue
+            keyword = col[:-6] if col_lower.endswith("_count") else col
+            expanded.append(
+                {
+                    "region_id": row_dict.get("region_id"),
+                    "date": row_date,
+                    "keyword": keyword,
+                    "event_type": keyword,
+                    "keyword_count": count,
+                }
+            )
+    return expanded
 
 
 @router.get("/news-count")
@@ -62,7 +133,7 @@ def get_news_count(
                 params = {"region_id": region_id}
 
             rows = db.execute(sql, params).mappings().all()
-        return [row_to_dict(row) for row in rows]
+        return _expand_news_rows(rows, date_col)
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to fetch news-count data: {exc}") from exc
 

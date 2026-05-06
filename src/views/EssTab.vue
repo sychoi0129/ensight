@@ -45,6 +45,7 @@ import * as echarts from 'echarts'
 const props = defineProps({
   series: { type: Array, default: () => [] },
   metrics: { type: Object, default: () => ({}) },
+  selectedDate: { type: String, default: '' },
   selectedTime: { type: String, default: '00:00' },
 })
 
@@ -53,9 +54,13 @@ const essChartEl = ref(null)
 let compareChart = null
 let essChart = null
 
+const daySeries = computed(() =>
+  props.series.filter((row) => row.ts.slice(0, 10) === props.selectedDate)
+)
+
 const selectedPoint = computed(() => {
-  if (!props.series.length) return null
-  return props.series.find((row) => row.ts.slice(11, 16) === props.selectedTime) ?? props.series[0]
+  if (!daySeries.value.length) return null
+  return daySeries.value.find((row) => row.ts.slice(11, 16) === props.selectedTime) ?? daySeries.value[0]
 })
 
 function fmt(value) {
@@ -64,7 +69,7 @@ function fmt(value) {
 }
 
 function buildCompareOption() {
-  const values = props.series
+  const values = daySeries.value
     .flatMap((row) => [row.actual, row.pred_1_step, row.pred_24_step, row.rt_result])
     .filter(Number.isFinite)
   const rawMin = values.length ? Math.min(...values) * 0.97 : undefined
@@ -105,7 +110,7 @@ function buildCompareOption() {
       {
         name: '실측 부하',
         type: 'line',
-        data: props.series.map((row) => [row.ts, row.actual]),
+        data: daySeries.value.map((row) => [row.ts, row.actual]),
         symbol: 'none',
         lineStyle: { color: '#5e72e4', width: 2 },
         smooth: 0.25,
@@ -113,7 +118,7 @@ function buildCompareOption() {
       {
         name: '1시간 예측',
         type: 'line',
-        data: props.series.map((row) => [row.ts, row.pred_1_step]),
+        data: daySeries.value.map((row) => [row.ts, row.pred_1_step]),
         symbol: 'none',
         lineStyle: { color: '#11cdef', width: 2, type: 'dashed' },
         smooth: 0.25,
@@ -121,7 +126,7 @@ function buildCompareOption() {
       {
         name: '24시간 예측',
         type: 'line',
-        data: props.series.map((row) => [row.ts, row.pred_24_step]),
+        data: daySeries.value.map((row) => [row.ts, row.pred_24_step]),
         symbol: 'none',
         lineStyle: { color: '#fb6340', width: 2, type: 'dotted' },
         smooth: 0.25,
@@ -129,7 +134,7 @@ function buildCompareOption() {
       {
         name: 'ESS 적용 부하',
         type: 'line',
-        data: props.series.map((row) => [row.ts, row.rt_result]),
+        data: daySeries.value.map((row) => [row.ts, row.rt_result]),
         symbol: 'none',
         lineStyle: { color: '#2dce89', width: 2 },
         smooth: 0.25,
@@ -179,21 +184,21 @@ function buildOption() {
         name: '충전 전력',
         type: 'bar',
         yAxisIndex: 0,
-        data: props.series.map((row) => [row.ts, row.charge_kw]),
+        data: daySeries.value.map((row) => [row.ts, row.charge_kw]),
         itemStyle: { color: '#11cdef' },
       },
       {
         name: '방전 전력',
         type: 'bar',
         yAxisIndex: 0,
-        data: props.series.map((row) => [row.ts, row.discharge_kw]),
+        data: daySeries.value.map((row) => [row.ts, row.discharge_kw]),
         itemStyle: { color: '#fb6340' },
       },
       {
         name: '배터리 SOC',
         type: 'line',
         yAxisIndex: 1,
-        data: props.series.map((row) => [row.ts, row.soc]),
+        data: daySeries.value.map((row) => [row.ts, row.soc]),
         symbol: 'none',
         lineStyle: { color: '#2dce89', width: 2 },
       },
@@ -201,7 +206,7 @@ function buildOption() {
         name: '전력 가격',
         type: 'line',
         yAxisIndex: 1,
-        data: props.series.map((row) => [row.ts, row.price]),
+        data: daySeries.value.map((row) => [row.ts, row.price]),
         symbol: 'none',
         lineStyle: { color: '#5e72e4', width: 2, type: 'dashed' },
       },
@@ -226,5 +231,6 @@ onUnmounted(() => {
   essChart?.dispose()
 })
 watch(() => props.series, draw, { deep: true })
+watch(() => props.selectedDate, draw)
 </script>
 
