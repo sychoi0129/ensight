@@ -13,43 +13,20 @@
       <div class="sidebar-controls">
         <div class="ctrl-group">
           <label class="form-label">지역</label>
-          <select
-            class="form-select"
-            v-model.number="selectedRegionId"
-            :disabled="!regionList.length"
-          >
-            <option
-              v-for="r in regionList"
-              :key="r.region_id"
-              :value="r.region_id"
-            >
-              {{ r.region_name }}
+          <select class="form-select" v-model.number="selectedRegionId">
+            <option v-for="region in regions" :key="region.region_id" :value="region.region_id">
+              {{ region.region_name }}
             </option>
           </select>
         </div>
         <div class="ctrl-group">
-          <label class="form-label">기준 일자</label>
-          <input
-            type="date"
-            class="form-select"
-            v-model="selectedIssueDate"
-            :min="issueDateMin"
-            :max="issueDateMax"
-            :disabled="!timeRange"
-            @change="refreshDashboard"
-          />
+          <label class="form-label">날짜</label>
+          <input type="date" class="form-select" v-model="selectedDate" />
         </div>
         <div class="ctrl-group">
-          <label class="form-label">기준 시각</label>
-          <select
-            class="form-select"
-            v-model.number="selectedIssueHour"
-            :disabled="!timeRange"
-            @change="refreshDashboard"
-          >
-            <option v-for="h in issueHourOptions" :key="h" :value="h">
-              {{ pad2(h) }}
-            </option>
+          <label class="form-label">시간</label>
+          <select class="form-select" v-model="selectedTime">
+            <option v-for="t in availableTimes" :key="t">{{ t }}</option>
           </select>
         </div>
       </div>
@@ -61,16 +38,13 @@
           class="nav-item" :class="{ active: activeTab === tab.key }"
           @click="activeTab = tab.key"
         >
-          <span class="nav-icon">
-            <img :src="tab.icon" :alt="tab.label" class="nav-icon-img" />
-          </span>
           <span>{{ tab.label }}</span>
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="pill live">● LIVE</div>
-        <div class="sidebar-model">API · DB</div>
+        <div class="pill live">● {{ statusLabel }}</div>
+        <div class="sidebar-model">{{ statusDetail }}</div>
       </div>
     </aside>
 
@@ -78,11 +52,11 @@
       <div class="page-header">
         <div>
           <div class="page-breadcrumb">Ensight ✦ 전국 전력 수요 예측 시스템</div>
-          <div class="page-title">{{ tabs.find(t => t.key === activeTab)?.label }}</div>
+          <div class="page-title">{{ currentTabLabel }}</div>
         </div>
         <div class="page-header-right">
-          <span class="status-item">{{ selectedRegionName }}</span>
-          <span class="status-item">{{ selectedIssueDate }} {{ pad2(selectedIssueHour) }}</span>
+          <span class="status-item">{{ selectedRegionName || "-" }}</span>
+          <span class="status-item">{{ selectedDate }} {{ selectedTime }}</span>
         </div>
       </div>
 
@@ -92,23 +66,19 @@
             <div>
               <div class="kpi-tag">직전 전력</div>
               <div class="kpi-value">{{ latestPower }}</div>
-              <div class="kpi-unit">MW · 마지막 입력값</div>
+              <div class="kpi-unit">kW · 선택 시간 기준</div>
             </div>
-            <div class="kpi-icon blue">
-              <img :src="powerIcon" alt="직전 전력" class="kpi-icon-img" />
-            </div>
+            <div class="kpi-icon blue"><img :src="powerIcon" alt="직전 전력" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card warn">
           <div class="kpi-card-inner">
             <div>
-              <div class="kpi-tag">168step 피크</div>
+              <div class="kpi-tag">피크 부하</div>
               <div class="kpi-value">{{ loadPeak }}</div>
-              <div class="kpi-unit">MW · 입력 구간 최대값</div>
+              <div class="kpi-unit">kW · 일 구간 최대값</div>
             </div>
-            <div class="kpi-icon blue">
-              <img :src="peakIcon" alt="168step 피크" class="kpi-icon-img" />
-            </div>
+            <div class="kpi-icon blue"><img :src="peakIcon" alt="피크 부하" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card info">
@@ -116,48 +86,45 @@
             <div>
               <div class="kpi-tag">평균 기온</div>
               <div class="kpi-value">{{ avgTemp }}°</div>
-              <div class="kpi-unit">°C · 168step 평균</div>
+              <div class="kpi-unit">°C · 선택 구간 평균</div>
             </div>
-            <div class="kpi-icon blue">
-              <img :src="tempIcon" alt="평균 기온" class="kpi-icon-img" />
-            </div>
+            <div class="kpi-icon blue"><img :src="tempIcon" alt="평균 기온" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card alert">
           <div class="kpi-card-inner">
             <div>
               <div class="kpi-tag">뉴스 이벤트</div>
-              <div class="kpi-value">{{ newsMentionKpi }}</div>
-              <div class="kpi-unit">뉴스 키워드 합계</div>
+              <div class="kpi-value">{{ newsKeywordCount }}</div>
+              <div class="kpi-unit">해당 지역/날짜 키워드 카운트</div>
             </div>
-            <div class="kpi-icon blue">
-              <img :src="newsIcon" alt="뉴스 이벤트" class="kpi-icon-img" />
-            </div>
+            <div class="kpi-icon blue"><img :src="newsIcon" alt="뉴스 이벤트" class="kpi-icon-img" /></div>
           </div>
         </div>
       </div>
 
       <div class="content-area">
-        <DemandTab
-          v-if="activeTab === 'demand'"
-          :hist-df="histDf"
-          :forecast-df="forecastDf"
-          :weather-view="weatherView"
-          :news-view="newsView"
-          :horizon="FORECAST_HOURS"
-          :xai-result="xaiResult"
-          power-unit="MW"
-        />
+        <div v-if="apiError" class="panel" style="color:#f5365c;">API 연결 실패: {{ apiError }}</div>
+        <div v-else-if="!isLoading && activeTab !== 'map' && compareSeries.length === 0" class="panel">조회된 데이터가 없습니다.</div>
         <MapTab
           v-else-if="activeTab === 'map'"
-          :map-df="mapDf"
-          power-unit="MW"
+          :map-df="regionalMapDf"
         />
-        <WeatherTab
-          v-else-if="activeTab === 'weather'"
-          :weather-view="weatherView"
-          :hist-df="histDf"
-          power-unit="MW"
+        <DemandTab
+          v-else-if="activeTab === 'demand'"
+          :series="compareSeries"
+          :news-view="newsViewForDemand"
+          :xai-result="xaiResultForDemand"
+          :selected-date="selectedDate"
+          :selected-time="selectedTime"
+          :is-loading="isLoading"
+        />
+        <EssTab
+          v-else
+          :series="compareSeries"
+          :metrics="compareMetrics"
+          :selected-date="selectedDate"
+          :selected-time="selectedTime"
         />
       </div>
     </main>
@@ -165,307 +132,407 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import {
-  fetchRegions,
-  fetchTimeRange,
-  fetchDashboard,
-  fetchMapSummary,
-  toLocalIso,
-  weatherRowsFromSnapshot,
-  weatherRowsFromSeries,
-  newsRowsFromDashboardNewsSeries,
-  newsDayMentionTotal,
-  histFromDashboard,
-  forecastFromDashboard,
-} from '@/api/client'
+import { computed, onMounted, ref, watch } from 'vue'
+import DemandTab from '@/views/DemandTab.vue'
+import EssTab from '@/views/EssTab.vue'
+import MapTab from '@/views/MapTab.vue'
 import { summarizeXai } from '@/composables/useXai'
 import { REGION_COORDS } from '@/constants/settings'
-import DemandTab  from '@/views/DemandTab.vue'
-import MapTab     from '@/views/MapTab.vue'
-import WeatherTab from '@/views/WeatherTab.vue'
-import demandIcon from '@/assets/images/icons/demand.png'
-import mapIcon from '@/assets/images/icons/map.png'
-import weatherIcon from '@/assets/images/icons/weather.png'
 import powerIcon from '@/assets/images/icons/power.png'
 import peakIcon from '@/assets/images/icons/peak.png'
 import tempIcon from '@/assets/images/icons/temperature.png'
 import newsIcon from '@/assets/images/icons/news.png'
 
-const INPUT_WINDOW = 168
-const FORECAST_HOURS = 24
-/** API/DB는 kW 등으로 올 수 있음 — 화면은 MW (÷1000) */
-const POWER_TO_MW = 0.001
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-function pad2(n) {
-  return String(Number(n)).padStart(2, '0')
-}
-
-function toDateStr(d) {
-  if (!d || !Number.isFinite(d.getTime())) return ''
-  const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
-
-const issueHourOptions = Array.from({ length: 24 }, (_, i) => i)
-
-function issueAsDate() {
-  if (!selectedIssueDate.value) return null
-  const h = Number(selectedIssueHour.value)
-  if (!Number.isFinite(h) || h < 0 || h > 23) return null
-  const p = n => String(n).padStart(2, '0')
-  const d = new Date(`${selectedIssueDate.value}T${p(h)}:00:00`)
-  return Number.isFinite(d.getTime()) ? d : null
-}
-
-function latLngForRegion(name, index, total) {
-  const c = REGION_COORDS[name]
-  if (c) return { lat: c[0], lng: c[1] }
-  const angle = (2 * Math.PI * index) / Math.max(total, 1)
-  const rad = 0.42 + (index % 5) * 0.06
-  return {
-    lat: 36.45 + rad * Math.cos(angle),
-    lng: 127.85 + rad * Math.sin(angle),
-  }
-}
-
-function mapSummaryToMapDf(apiRegions) {
-  if (!apiRegions?.length) return []
-  const n = apiRegions.length
-  return apiRegions.map((r, i) => {
-    const name = r.region_name
-    const { lat, lng } = latLngForRegion(name, i, n)
-    const samples = Number(r.sample_count ?? 0) || 0
-    const avgField = r.avg_usage_value
-    const latestField = r.latest_usage_value
-    const avg =
-      avgField != null && avgField !== '' ? Number(avgField) : NaN
-    const latest =
-      latestField != null && latestField !== '' ? Number(latestField) : NaN
-    let vRaw
-    if (samples > 0 && Number.isFinite(avg)) {
-      vRaw = avg
-    } else if (Number.isFinite(latest)) {
-      vRaw = latest
-    } else if (Number.isFinite(avg)) {
-      vRaw = avg
-    } else {
-      vRaw = 0
-    }
-    return {
-      region: name,
-      avg_load: +(vRaw * POWER_TO_MW).toFixed(3),
-      lat,
-      lng,
-    }
-  })
-}
-
-const regionList = ref([])
+const regions = ref([])
 const selectedRegionId = ref(null)
-const timeRange = ref(null)
-const selectedIssueDate = ref('')
-const selectedIssueHour = ref(0)
-const rawDashboard = ref(null)
-const rawMapSummary = ref(null)
-const activeTab = ref('demand')
+const selectedDate = ref("")
+const selectedTime = ref("00:00")
+const activeTab = ref("demand")
 
-const selectedRegionName = computed(() => {
-  const r = regionList.value.find(x => x.region_id === selectedRegionId.value)
-  return r?.region_name ?? '—'
+const compareSeries = ref([])
+const compareMetrics = ref({})
+const newsRows = ref([])
+const weatherRows = ref([])
+const regionalMapDf = ref([])
+const apiError = ref("")
+const isLoading = ref(false)
+const apiConnected = ref(false)
+
+const statusLabel = computed(() => {
+  if (isLoading.value) return "Loading"
+  if (apiError.value) return "API ERROR"
+  if (apiConnected.value) return "API Connected"
+  return "Idle"
 })
 
-const issueDateMin = computed(() =>
-  timeRange.value?.min_ts ? toDateStr(new Date(timeRange.value.min_ts)) : '',
+const statusDetail = computed(() => {
+  if (apiError.value) return apiError.value
+  return "LIVE"
+})
+
+const selectedRegionName = computed(
+  () => regions.value.find((r) => r.region_id === selectedRegionId.value)?.region_name ?? ""
 )
-const issueDateMax = computed(() =>
-  timeRange.value?.max_ts ? toDateStr(new Date(timeRange.value.max_ts)) : '',
-)
-
-const histDf = computed(() => {
-  const rows = histFromDashboard(rawDashboard.value?.actual_series)
-  return rows.map(r => ({ ...r, power_usage: r.power_usage * POWER_TO_MW }))
-})
-
-const forecastDf = computed(() => {
-  const rows = forecastFromDashboard(rawDashboard.value?.forecast_series)
-  return rows.map(r => ({
-    ...r,
-    prediction: r.prediction * POWER_TO_MW,
-    lower: r.lower * POWER_TO_MW,
-    upper: r.upper * POWER_TO_MW,
-  }))
-})
-
-const weatherView = computed(() => {
-  const d = rawDashboard.value
-  if (!d) return []
-  const name = selectedRegionName.value
-  const fromSeries = weatherRowsFromSeries(d.weather_series, name)
-  if (fromSeries.length) return fromSeries
-  return weatherRowsFromSnapshot(histDf.value, d.weather, name)
-})
-
-function normalizeNewsDateKey(raw) {
-  if (raw == null || raw === '') return ''
-  if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw.trim())) return raw.trim().slice(0, 10)
-  const d = new Date(raw)
-  if (!Number.isFinite(d.getTime())) return ''
-  const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
-
-/** 백엔드는 issue_ts 기준 뉴스 스냅샷을 (issue日 - 1일) news_date로 조회함 */
-function prevCalendarDayKey(yyyyMmDd) {
-  const head = typeof yyyyMmDd === 'string' ? yyyyMmDd.slice(0, 10) : ''
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(head)) return ''
-  const d = new Date(`${head}T12:00:00`)
-  if (!Number.isFinite(d.getTime())) return ''
-  d.setDate(d.getDate() - 1)
-  const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
-
-function buildNewsRows(dashboard, issueDateStr) {
-  if (!dashboard) return []
-  const name = selectedRegionName.value
-  const dayKey = issueDateStr?.slice(0, 10)
-  const snap = dashboard.news
-  if (snap && (snap.topic_counts != null || snap.topic_count_sum != null)) {
-    const day = snap.news_date ?? snap.newsDate
-    if (day) {
-      return newsRowsFromDashboardNewsSeries(
-        [
-          {
-            region_id: snap.region_id,
-            region_name: snap.region_name ?? name,
-            news_date: day,
-            topic_count_sum: snap.topic_count_sum,
-            topic_counts: snap.topic_counts,
-          },
-        ],
-        name,
-      )
-    }
-  }
-  const series = dashboard.news_series
-  if (Array.isArray(series) && series.length && dayKey) {
-    for (const dk of [dayKey, prevCalendarDayKey(dayKey)]) {
-      if (!dk) continue
-      const filtered = series.filter(
-        row => normalizeNewsDateKey(row.news_date) === dk,
-      )
-      if (filtered.length) return newsRowsFromDashboardNewsSeries(filtered, name)
-    }
-  }
-  return []
-}
-
-const newsView = computed(() =>
-  buildNewsRows(rawDashboard.value, selectedIssueDate.value),
-)
-
-/** 이 issue_ts·선택 지역: 일일 행에서 키워드(topic_counts) 언급 건수 합 — 스냅샷 우선 */
-const newsMentionKpi = computed(() => {
-  const d = rawDashboard.value
-  const day = selectedIssueDate.value?.slice(0, 10)
-  if (!d || !day) return 0
-  const snap = d.news
-  if (snap && (snap.topic_counts != null || snap.topic_count_sum != null)) {
-    return newsDayMentionTotal(snap)
-  }
-  const series = d.news_series
-  if (!Array.isArray(series)) return 0
-  for (const dk of [day, prevCalendarDayKey(day)]) {
-    if (!dk) continue
-    let sum = 0
-    for (const row of series) {
-      if (normalizeNewsDateKey(row.news_date) === dk) {
-        sum += newsDayMentionTotal(row)
-      }
-    }
-    if (sum > 0) return sum
-  }
-  return 0
-})
-
-const mapDf = computed(() => mapSummaryToMapDf(rawMapSummary.value?.regions))
-
-const xaiResult = computed(() =>
-  summarizeXai(histDf.value, weatherView.value, newsView.value, INPUT_WINDOW),
-)
-
-const latestPower = computed(() => {
-  const s = rawDashboard.value?.summary
-  if (s?.last_power != null && Number.isFinite(Number(s.last_power))) {
-    return (Number(s.last_power) * POWER_TO_MW).toFixed(2)
-  }
-  if (histDf.value.length) {
-    return histDf.value[histDf.value.length - 1].power_usage.toFixed(2)
-  }
-  return '—'
-})
-
-const loadPeak = computed(() =>
-  histDf.value.length ? Math.max(...histDf.value.map(r => r.power_usage)).toFixed(2) : '—',
-)
-
-const avgTemp = computed(() => {
-  const w = weatherView.value
-  if (w.length) {
-    const t = w.reduce((s, r) => s + r.temperature, 0) / w.length
-    return t.toFixed(1)
-  }
-  const s = rawDashboard.value?.summary
-  if (s?.temperature != null && Number.isFinite(Number(s.temperature))) {
-    return Number(s.temperature).toFixed(1)
-  }
-  return '—'
-})
 
 const tabs = [
-  { key: 'demand',  label: '전력 사용량 예측', icon: demandIcon },
-  { key: 'map',     label: '지역별 현황', icon: mapIcon },
-  { key: 'weather', label: '기상 분석', icon: weatherIcon },
+  { key: "demand", label: "전력 수요 예측" },
+  { key: "map", label: "지역별 현황" },
+  { key: "ess", label: "ESS 기능" },
 ]
+const currentTabLabel = computed(() => tabs.find((tab) => tab.key === activeTab.value)?.label ?? "대시보드")
 
-async function refreshDashboard() {
-  const id = selectedRegionId.value
-  const d = issueAsDate()
-  if (id == null || !d) return
-  const iso = toLocalIso(d)
-  const [dash, mapSum] = await Promise.all([
-    fetchDashboard(id, iso, INPUT_WINDOW, 5, FORECAST_HOURS),
-    fetchMapSummary(iso, INPUT_WINDOW),
-  ])
-  rawDashboard.value = dash
-  rawMapSummary.value = mapSum
+const availableTimes = computed(() =>
+  [...new Set(
+    compareSeries.value
+      .filter((row) => row.ts.slice(0, 10) === selectedDate.value)
+      .map((row) => row.ts.slice(11, 16))
+  )].sort()
+)
+
+const selectedSeriesPoint = computed(() => {
+  if (!compareSeries.value.length) return null
+  const found = compareSeries.value.find(
+    (row) => row.ts.slice(0, 10) === selectedDate.value && row.ts.slice(11, 16) === selectedTime.value
+  )
+  return found ?? compareSeries.value[compareSeries.value.length - 1]
+})
+
+const latestPower = computed(() => {
+  const value = selectedSeriesPoint.value?.actual
+  return Number.isFinite(value) ? `${value.toFixed(1)}` : "—"
+})
+
+const loadPeak = computed(() => {
+  const peak = compareMetrics.value?.peak_before_ess
+  if (Number.isFinite(peak)) return `${peak.toFixed(1)}`
+  if (!compareSeries.value.length) return "—"
+  return `${Math.max(...compareSeries.value.map((row) => row.actual ?? 0)).toFixed(1)}`
+})
+
+const avgTemp = computed(() => {
+  const getTemp = (row) =>
+    Number(
+      row.temperature ??
+      row.temp ??
+      row.air_temp ??
+      row.ta ??
+      row.mean_temp ??
+      NaN
+    )
+  const vals = weatherRows.value.map(getTemp).filter(Number.isFinite)
+  if (!vals.length) return "—"
+  const value = vals.reduce((acc, v) => acc + v, 0) / vals.length
+  return Number.isFinite(value) ? value.toFixed(2) : "—"
+})
+
+function getNewsRowDate(row) {
+  return String(row.date ?? row.target_date ?? row.news_date ?? '').slice(0, 10)
 }
 
-watch(selectedRegionId, async id => {
-  if (id == null) return
+function selectNewsRowsByDate(rows, selectedDateStr) {
+  const rowsOfDay = rows.filter((row) => getNewsRowDate(row) === selectedDateStr)
+  if (rowsOfDay.length) return rowsOfDay
+
+  const candidates = rows
+    .map((row) => ({ row, d: getNewsRowDate(row) }))
+    .filter((item) => item.d && item.d <= selectedDateStr)
+    .sort((a, b) => (a.d < b.d ? 1 : -1))
+
+  if (!candidates.length) return []
+  const fallbackDate = candidates[0].d
+  return rows.filter((row) => getNewsRowDate(row) === fallbackDate)
+}
+
+const newsKeywordCount = computed(() => {
+  if (!newsRows.value.length) return "0"
+  const rowsOfDay = selectNewsRowsByDate(newsRows.value, selectedDate.value)
+  if (!rowsOfDay.length) return "0"
+  const keys = Object.keys(rowsOfDay[0] ?? {})
+  const keywordLike = keys.filter((key) => key.toLowerCase().includes("keyword") && key.toLowerCase().includes("count"))
+  const countLike = keys.filter((key) => key.toLowerCase().includes("count"))
+  const targetKeys = keywordLike.length ? keywordLike : countLike
+  if (!targetKeys.length) return String(rowsOfDay.length)
+
+  const total = rowsOfDay.reduce((sum, row) => {
+    const rowSum = targetKeys.reduce((acc, key) => acc + (Number(row[key]) || 0), 0)
+    return sum + rowSum
+  }, 0)
+  return String(total)
+})
+
+const newsViewForDemand = computed(() => {
+  if (!newsRows.value.length) return []
+  const targetRows = selectNewsRowsByDate(newsRows.value, selectedDate.value)
+  const expanded = []
+
+  targetRows.forEach((row, idx) => {
+    const rowDate = getNewsRowDate(row) || selectedDate.value
+    const timestamp = new Date(`${rowDate}T12:00:00`)
+    const keys = Object.keys(row ?? {})
+    const countColumns = keys.filter((key) =>
+      key.toLowerCase().endsWith('_count') &&
+      !['region_id', 'model_id', 'run_id'].includes(key.toLowerCase())
+    )
+
+    if (countColumns.length) {
+      countColumns.forEach((col) => {
+        const countValue = Number(row[col] ?? 0)
+        if (!Number.isFinite(countValue) || countValue <= 0) return
+        const keyword = col.replace(/_count$/i, '')
+        const impact = Math.max(0.3, Math.min(0.95, countValue / 10))
+        expanded.push({
+          timestamp,
+          headline: `${keyword} 관련 키워드`,
+          event_type: keyword,
+          summary: `해당 키워드 카운트 ${countValue}건`,
+          impact_score: Number(impact.toFixed(2)),
+          keyword,
+        })
+      })
+      return
+    }
+
+    const countValue = Number(
+      row.keyword_count ??
+      row.count ??
+      row.news_count ??
+      row.total_count ??
+      row.keyword_cnt ??
+      1
+    )
+    const impact = Math.max(0.3, Math.min(0.95, countValue / 10))
+    const headline =
+      row.keyword ??
+      row.keyword_name ??
+      row.event_type ??
+      row.category ??
+      `뉴스 키워드 ${idx + 1}`
+    const eventType = String(row.event_type ?? headline ?? '뉴스')
+    expanded.push({
+      timestamp,
+      headline: String(headline),
+      event_type: eventType,
+      summary: `해당 키워드 카운트 ${countValue}건`,
+      impact_score: Number(impact.toFixed(2)),
+      keyword: String(headline),
+    })
+  })
+
+  return expanded.slice(0, 12)
+})
+
+const histDfForXai = computed(() =>
+  compareSeries.value.map((row) => ({
+    timestamp: new Date(row.ts),
+    power_usage: Number(row.actual ?? 0),
+  }))
+)
+
+const xaiResultForDemand = computed(() =>
+  summarizeXai(histDfForXai.value, [], newsViewForDemand.value, 168)
+)
+
+function toDateString(value) {
+  const d = new Date(value)
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function addDay(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`)
+  d.setDate(d.getDate() + 1)
+  return toDateString(d)
+}
+
+function subtractDays(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00`)
+  d.setDate(d.getDate() - days)
+  return toDateString(d)
+}
+
+function resolveRegionCoords(regionName) {
+  if (REGION_COORDS[regionName]) return REGION_COORDS[regionName]
+
+  const aliasMap = {
+    "제주": "제주특별지사",
+    "제주도": "제주특별지사",
+    "제주특별자치도": "제주특별지사",
+    "경기북부": "경기 북부",
+  }
+  const alias = aliasMap[regionName]
+  if (alias && REGION_COORDS[alias]) return REGION_COORDS[alias]
+
+  if (regionName.includes("제주")) return [33.4996, 126.5312]
+  return null
+}
+
+async function fetchRegions() {
   try {
-    const tr = await fetchTimeRange(id)
-    timeRange.value = tr
-    const max = new Date(tr.max_ts)
-    selectedIssueDate.value = toDateStr(max)
-    selectedIssueHour.value = max.getHours()
-    await refreshDashboard()
-  } catch (e) {
-    console.error(e)
-    timeRange.value = null
-    rawDashboard.value = null
-    rawMapSummary.value = null
+    const res = await fetch(`${API_BASE_URL}/api/regions`)
+    if (!res.ok) throw new Error(`regions API failed (${res.status})`)
+    const data = await res.json()
+    regions.value = data
+    if (data.length && selectedRegionId.value == null) selectedRegionId.value = data[0].region_id
+  } catch (err) {
+    console.error("Failed to fetch regions", err)
+    apiError.value = err instanceof Error ? err.message : String(err)
+  }
+}
+
+async function fetchLatestDate(regionId) {
+  const res = await fetch(`${API_BASE_URL}/api/latest-date?region_id=${regionId}`)
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(`latest-date API failed (${res.status}): ${txt}`)
+  }
+  const data = await res.json()
+  return data.latest_date ?? null
+}
+
+async function setLatestDateForRegion() {
+  if (!selectedRegionId.value) return
+  try {
+    const latestDate = await fetchLatestDate(selectedRegionId.value)
+    if (latestDate) {
+      selectedDate.value = latestDate
+    } else if (!selectedDate.value) {
+      selectedDate.value = toDateString(new Date())
+    }
+  } catch (err) {
+    console.error("Failed to fetch latest date", err)
+    if (!selectedDate.value) selectedDate.value = toDateString(new Date())
+  }
+}
+
+async function fetchNewsCount() {
+  if (!selectedRegionId.value || !selectedDate.value) return
+  const startDate = subtractDays(selectedDate.value, 6)
+  const endDate = addDay(selectedDate.value)
+  const url =
+    `${API_BASE_URL}/api/news-count?region_id=${selectedRegionId.value}` +
+    `&start=${startDate}&end=${endDate}`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(`news-count API failed (${res.status}): ${txt}`)
+    }
+    const data = await res.json()
+    newsRows.value = Array.isArray(data) ? data : []
+  } catch (err) {
+    console.error("Failed to fetch news-count", err)
+    newsRows.value = []
+  }
+}
+
+async function fetchWeather() {
+  if (!selectedRegionId.value || !selectedDate.value) return
+  const startDate = subtractDays(selectedDate.value, 6)
+  const endDate = addDay(selectedDate.value)
+  const url =
+    `${API_BASE_URL}/api/weather?region_id=${selectedRegionId.value}` +
+    `&start=${startDate}&end=${endDate}`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(`weather API failed (${res.status}): ${txt}`)
+    }
+    const data = await res.json()
+    weatherRows.value = Array.isArray(data) ? data : []
+  } catch (err) {
+    console.error("Failed to fetch weather", err)
+    weatherRows.value = []
+  }
+}
+
+async function fetchCompare() {
+  if (!selectedRegionId.value || !selectedDate.value) return
+  isLoading.value = true
+  apiError.value = ""
+  const startDate = subtractDays(selectedDate.value, 6)
+  const endDate = addDay(selectedDate.value)
+  const url =
+    `${API_BASE_URL}/api/compare?region_id=${selectedRegionId.value}` +
+    `&start=${startDate}&end=${endDate}`
+
+  try {
+    const res = await fetch(url)
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(`compare API failed (${res.status}): ${txt}`)
+    }
+    const data = await res.json()
+    compareSeries.value = Array.isArray(data.series) ? data.series : []
+    compareMetrics.value = data.metrics ?? {}
+    apiConnected.value = true
+
+    if (availableTimes.value.length && !availableTimes.value.includes(selectedTime.value)) {
+      selectedTime.value = availableTimes.value[0]
+    }
+  } catch (err) {
+    console.error("Failed to fetch compare", err)
+    apiConnected.value = false
+    compareSeries.value = []
+    compareMetrics.value = {}
+    apiError.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function fetchRegionalStatus() {
+  if (!regions.value.length || !selectedDate.value) return
+  const endDate = addDay(selectedDate.value)
+  const requests = regions.value.map(async (region) => {
+    const url =
+      `${API_BASE_URL}/api/metrics?region_id=${region.region_id}` +
+      `&start=${selectedDate.value}&end=${endDate}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(`metrics API failed (${res.status}): ${txt}`)
+    }
+    const metric = await res.json()
+    const coords = resolveRegionCoords(region.region_name)
+    if (!coords) return null
+    return {
+      region: region.region_name,
+      lat: coords[0],
+      lng: coords[1],
+      avg_load: Number(metric.peak_before_ess ?? 0),
+    }
+  })
+
+  try {
+    const data = await Promise.all(requests)
+    regionalMapDf.value = data.filter((row) => row && Number.isFinite(row.avg_load))
+  } catch (err) {
+    console.error("Failed to fetch regional status", err)
+    regionalMapDf.value = []
+  }
+}
+
+onMounted(async () => {
+  await fetchRegions()
+  await setLatestDateForRegion()
+  if (selectedDate.value && selectedRegionId.value) {
+    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
   }
 })
 
-onMounted(async () => {
-  try {
-    const regs = await fetchRegions()
-    regionList.value = regs
-    if (regs.length) selectedRegionId.value = regs[0].region_id
-  } catch (e) {
-    console.error(e)
+watch(selectedRegionId, async () => {
+  const prevDate = selectedDate.value
+  await setLatestDateForRegion()
+  if (selectedDate.value === prevDate && selectedDate.value) {
+    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
   }
+})
+
+watch(selectedDate, async (newDate, oldDate) => {
+  if (!selectedRegionId.value || !newDate || newDate === oldDate) return
+  await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
 })
 </script>
