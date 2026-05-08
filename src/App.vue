@@ -4,8 +4,8 @@
       <div class="sidebar-logo">
         <div class="logo-mark">E</div>
         <div>
-          <div class="logo-text">ensight</div>
-          <div class="logo-sub">전력 수요 예측</div>
+          <div class="logo-text">Ensight ✦</div>
+          <div class="logo-sub">전국 전력 수요 예측 시스템</div>
         </div>
       </div>
 

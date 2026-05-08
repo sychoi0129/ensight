@@ -74,7 +74,7 @@ async function drawMap() {
         longitude: 127.8,
         latitude: 36.2,
         zoom: 6.2,
-        pitch: 50,
+        pitch: 30,
         bearing: 0,
       },
       controller: true,
