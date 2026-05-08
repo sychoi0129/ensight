@@ -38,6 +38,7 @@
           class="nav-item" :class="{ active: activeTab === tab.key }"
           @click="activeTab = tab.key"
         >
+          <img :src="tab.icon" :alt="tab.label" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;" />
           <span>{{ tab.label }}</span>
         </button>
       </nav>
@@ -138,6 +139,9 @@ import EssTab from '@/views/EssTab.vue'
 import MapTab from '@/views/MapTab.vue'
 import { summarizeXai } from '@/composables/useXai'
 import { REGION_COORDS } from '@/constants/settings'
+import demandIcon from '@/assets/images/icons/demand.png'
+import mapIcon from '@/assets/images/icons/map.png'
+import ESSIcon from '@/assets/images/icons/ESS.png'
 import powerIcon from '@/assets/images/icons/power.png'
 import peakIcon from '@/assets/images/icons/peak.png'
 import tempIcon from '@/assets/images/icons/temperature.png'
@@ -177,9 +181,9 @@ const selectedRegionName = computed(
 )
 
 const tabs = [
-  { key: "demand", label: "전력 수요 예측" },
-  { key: "map", label: "지역별 현황" },
-  { key: "ess", label: "ESS 기능" },
+  { key: "demand", label: "전력 수요 예측", icon: demandIcon },
+  { key: "map", label: "지역별 현황", icon: mapIcon },
+  { key: "ess", label: "ESS 기능", icon: ESSIcon },
 ]
 const currentTabLabel = computed(() => tabs.find((tab) => tab.key === activeTab.value)?.label ?? "대시보드")
 

@@ -3,7 +3,11 @@
     <div class="row" style="gap:14px;">
       <div class="panel" style="flex:1.2; min-width:0;">
         <div class="section-label">지역별 피크 부하 현황</div>
-        <div ref="mapEl" style="width:100%; height:380px;"></div>
+        <div ref="mapEl" style="width:100%; height:420px; border-radius:10px; overflow:hidden; position:relative;">
+          <div v-if="!mapDf.length" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8898aa;font-size:13px;">
+            데이터 없음
+          </div>
+        </div>
       </div>
       <div class="panel" style="flex:1.8; min-width:0;">
         <div class="section-label">지역 랭킹</div>
@@ -21,73 +25,101 @@ const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
 const barEl = ref(null)
 let barChart = null
+let deckInstance = null
 
-// 지도는 Plotly 유지 (scattergeo는 ECharts에서 별도 설정 필요)
-async function drawMap() {
-  await nextTick()
-  const P = window.Plotly
-  if (!P || !mapEl.value || !props.mapDf.length) return
-
-  P.react(mapEl.value, [{
-    type: 'scattergeo',
-    lat: props.mapDf.map(r => r.lat),
-    lon: props.mapDf.map(r => r.lng),
-    text: props.mapDf.map(r => `${r.region}  ${r.avg_load.toFixed(1)} kW`),
-    mode: 'markers+text', textposition: 'top center',
-    textfont: { size: 9, color: '#8898aa' },
-    marker: {
-      size: props.mapDf.map(r => Math.max(8, r.avg_load / 5)),
-      color: props.mapDf.map(r => r.avg_load),
-      colorscale: [[0,'#e8ebfc'],[0.4,'#5865f2'],[1,'#c0b0ff']],
-      showscale: true,
-      colorbar: { title:{text:'kW',font:{color:'#8898aa',size:10}}, thickness:8, len:0.5, tickfont:{color:'#8898aa',size:9} },
-      line: { color: '#c8d0da', width: 0.5 },
-    },
-    hovertemplate: '%{text}<extra></extra>',
-  }], {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: '#ffffff',
-    font: { family: 'Pretendard', color: '#8898aa', size: 10 },
-    margin: { l: 0, r: 40, t: 8, b: 0 },
-    height: 380,
-    geo: {
-      scope: 'asia', center: { lat: 36.5, lon: 127.8 }, projection: { scale: 18 },
-      showland: true, landcolor: '#f0f2f5',
-      showcoastlines: true, coastlinecolor: '#c8d0da',
-      showframe: false, bgcolor: 'rgba(0,0,0,0)',
-      showocean: true, oceancolor: '#dde8f0',
-    },
-    hoverlabel: { bgcolor: '#1a1a2e', bordercolor: 'transparent', font: { color: '#fff', size: 12 } },
-  })
+// ── 색상 보간 (낮음: #8b9ef0 → 높음: #c0b0ff → 최고: #f5365c)
+function loadColor(normalized) {
+  const r1 = 139, g1 = 158, b1 = 240
+  const r2 = 192, g2 = 176, b2 = 255
+  const r = Math.round(r1 + (r2 - r1) * normalized)
+  const g = Math.round(g1 + (g2 - g1) * normalized)
+  const b = Math.round(b1 + (b2 - b1) * normalized)
+  return [r, g, b, 210]
 }
 
-// 랭킹 바 차트는 ECharts
+async function drawMap() {
+  await nextTick()
+  if (!mapEl.value || !props.mapDf.length) return
+
+  const deck = window.deck
+  if (!deck) {
+    console.warn('deck.gl not loaded')
+    return
+  }
+
+  const maxLoad = Math.max(...props.mapDf.map(r => r.avg_load), 1)
+
+  const layer = new deck.ColumnLayer({
+    id: 'peak-load',
+    data: props.mapDf,
+    diskResolution: 24,
+    radius: 18000,
+    extruded: true,
+    pickable: true,
+    elevationScale: 80,
+    getPosition: d => [d.lng, d.lat],
+    getElevation: d => d.avg_load,
+    getFillColor: d => loadColor(d.avg_load / maxLoad),
+    getLineColor: [255, 255, 255, 60],
+    lineWidthMinPixels: 1,
+  })
+
+  if (deckInstance) {
+    deckInstance.setProps({ layers: [layer] })
+  } else {
+    deckInstance = new deck.DeckGL({
+      container: mapEl.value,
+      mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      initialViewState: {
+        longitude: 127.8,
+        latitude: 36.2,
+        zoom: 6.2,
+        pitch: 50,
+        bearing: 0,
+      },
+      controller: true,
+      layers: [layer],
+      getTooltip: ({ object }) =>
+        object && {
+          html: `<div style="background:#1a1a2e;padding:8px 12px;border-radius:8px;font-family:Pretendard;color:#fff;font-size:12px;">
+            <b>${object.region}</b><br/>
+            <span style="color:#c0b0ff;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
+          </div>`,
+          style: { background: 'none', border: 'none', padding: 0 },
+        },
+    })
+  }
+}
+
+// ── 바 차트 (xAxis max 동적)
 async function drawBar() {
   await nextTick()
   if (!barEl.value || !props.mapDf.length) return
   if (!barChart) barChart = echarts.init(barEl.value)
 
   const sorted = [...props.mapDf].sort((a, b) => a.avg_load - b.avg_load)
+  const maxVal = Math.max(...sorted.map(r => r.avg_load), 1)
+  const xMax = Math.ceil(maxVal * 1.15 / 100) * 100  // 최대값 +15% 올림
+
   barChart.setOption({
     backgroundColor: 'transparent',
     grid: { left: 10, right: 70, top: 8, bottom: 8, containLabel: true },
     xAxis: {
       type: 'value',
       min: 0,
-      max: 1000,
+      max: xMax,
       axisLine: { show: false }, axisTick: { show: false },
       axisLabel: {
-        color: '#8898aa',
-        fontSize: 10,
-        fontFamily: 'Pretendard',
-        formatter: (v) => `${Math.round(v)}`,
+        color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard',
+        formatter: v => `${Math.round(v)}`,
       },
-      splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
+      splitLine: { lineStyle: { color: '#2a2a3e', type: 'dashed' } },
     },
     yAxis: {
       type: 'category',
       data: sorted.map(r => r.region),
       axisLine: { show: false }, axisTick: { show: false },
-      axisLabel: { color: '#4a5568', fontSize: 11, fontFamily: 'Pretendard' },
+      axisLabel: { color: '#8898aa', fontSize: 11, fontFamily: 'Pretendard' },
     },
     tooltip: {
       trigger: 'item',
@@ -96,7 +128,7 @@ async function drawBar() {
       borderRadius: 8,
       padding: [8, 12],
       textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
-      formatter: p => `<b>${p.name}</b><br><span style="color:#c0b0ff;">${p.value.toFixed(1)} kW</span>`,
+      formatter: p => `<b>${p.name}</b><br/><span style="color:#c0b0ff;">${p.value.toFixed(1)} kW</span>`,
     },
     series: [{
       type: 'bar',
@@ -105,18 +137,15 @@ async function drawBar() {
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
             { offset: 0, color: '#8b9ef0' },
-            { offset: 1, color: '#5e72e4' },
+            { offset: 1, color: '#5865f2' },
           ]),
           borderRadius: [0, 4, 4, 0],
         },
       })),
       barMaxWidth: 22,
       label: {
-        show: true,
-        position: 'right',
-        color: '#8898aa',
-        fontSize: 10,
-        fontFamily: 'JetBrains Mono',
+        show: true, position: 'right',
+        color: '#8898aa', fontSize: 10, fontFamily: 'JetBrains Mono',
         formatter: p => p.value.toFixed(1),
       },
     }],
@@ -129,6 +158,9 @@ async function draw() {
 }
 
 onMounted(() => setTimeout(draw, 100))
-onUnmounted(() => barChart?.dispose())
-watch(() => props.mapDf, draw)
+onUnmounted(() => {
+  barChart?.dispose()
+  deckInstance?.finalize()
+})
+watch(() => props.mapDf, draw, { deep: true })
 </script>
