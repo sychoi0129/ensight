@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     db_user: str = Field(default="postgres", alias="DB_USER")
     db_password: str = Field(default="postgres", alias="DB_PASSWORD")
     db_schema: str = Field(default="capstone", alias="DB_SCHEMA")
+    db_sslmode: str = Field(default="require", alias="DB_SSLMODE")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -20,6 +21,7 @@ class Settings(BaseSettings):
         return (
             f"postgresql+psycopg2://{self.db_user}:{self.db_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
+            f"?sslmode={self.db_sslmode}"
         )
 
 
