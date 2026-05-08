@@ -5,32 +5,62 @@
       <div ref="compareChartEl" style="width:100%; min-height:340px;"></div>
     </div>
 
-    <div class="row" style="gap:14px; align-items:stretch;">
-      <div class="col-2 panel" style="display:flex; flex-direction:column;">
+    <div class="ess-split-row">
+      <div class="panel ess-chart-panel" style="display:flex; flex-direction:column;">
         <div class="section-label">ESS 운전 상태 (충전/방전/SOC/가격)</div>
         <div ref="essChartEl" style="width:100%; flex:1; min-height:340px;"></div>
       </div>
 
-      <div class="col-1" style="display:flex; flex-direction:column; gap:12px;">
+      <div class="ess-kpi-column">
         <div class="panel">
           <div class="section-label">선택 시간 ESS 상태</div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
-            <div>충전 전력: <b>{{ fmt(selectedPoint?.charge_kw) }}</b></div>
-            <div>방전 전력: <b>{{ fmt(selectedPoint?.discharge_kw) }}</b></div>
-            <div>ESS 조정량: <b>{{ fmt(selectedPoint?.ess_adjustment_kw) }}</b></div>
-            <div>SOC: <b>{{ fmt(selectedPoint?.soc) }}</b></div>
-            <div>전력가격: <b>{{ fmt(selectedPoint?.price) }}</b></div>
-            <div>ESS 적용 후 부하: <b>{{ fmt(selectedPoint?.rt_result) }}</b></div>
+          <div class="ess-stat-list">
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">충전 전력</span>
+              <span class="ess-stat-value">{{ formatPowerKw(selectedPoint?.charge_kw) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">방전 전력</span>
+              <span class="ess-stat-value">{{ formatPowerKw(selectedPoint?.discharge_kw) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">ESS 조정량</span>
+              <span class="ess-stat-value">{{ formatSignedPowerKw(selectedPoint?.ess_adjustment_kw) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">SOC</span>
+              <span class="ess-stat-value">{{ formatSocPct(selectedPoint?.soc) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">전력가격</span>
+              <span class="ess-stat-value">{{ formatPriceKwh(selectedPoint?.price) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">ESS 적용 후 부하</span>
+              <span class="ess-stat-value">{{ formatPowerKw(selectedPoint?.rt_result) }}</span>
+            </div>
           </div>
         </div>
 
         <div class="panel">
           <div class="section-label">ESS 요약 지표</div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
-            <div>총 충전량: <b>{{ fmt(metrics.total_charge_kwh) }}</b></div>
-            <div>총 방전량: <b>{{ fmt(metrics.total_discharge_kwh) }}</b></div>
-            <div>평균 SOC: <b>{{ fmt(metrics.avg_soc) }}</b></div>
-            <div>피크 감소량: <b>{{ fmt(metrics.peak_reduction) }}</b></div>
+          <div class="ess-stat-list">
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">총 충전량</span>
+              <span class="ess-stat-value">{{ formatEnergyKwh(metrics.total_charge_kwh) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">총 방전량</span>
+              <span class="ess-stat-value">{{ formatEnergyKwh(metrics.total_discharge_kwh) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">평균 SOC</span>
+              <span class="ess-stat-value">{{ formatSocPct(metrics.avg_soc) }}</span>
+            </div>
+            <div class="ess-stat-row">
+              <span class="ess-stat-label">{{ peakDisplay.title }}</span>
+              <span class="ess-stat-value">{{ peakDisplay.body }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -41,6 +71,9 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
+
+const POWER_KEYS = ['charge_kw', 'discharge_kw', 'ess_adjustment_kw', 'rt_result', 'actual', 'pred_1_step', 'pred_24_step']
+const POWER_MW_THRESHOLD_KW = 1000
 
 const props = defineProps({
   series: { type: Array, default: () => [] },
@@ -63,12 +96,94 @@ const selectedPoint = computed(() => {
   return daySeries.value.find((row) => row.ts.slice(11, 16) === props.selectedTime) ?? daySeries.value[0]
 })
 
-function fmt(value) {
-  if (!Number.isFinite(value)) return '—'
-  return Number(value).toFixed(2)
+function collectPowerMagnitudes(rows, metrics) {
+  const vals = []
+  for (const row of rows) {
+    for (const k of POWER_KEYS) {
+      const v = Number(row[k])
+      if (Number.isFinite(v)) vals.push(Math.abs(v))
+    }
+  }
+  const pr = Number(metrics?.peak_reduction)
+  if (Number.isFinite(pr)) vals.push(Math.abs(pr))
+  return vals
 }
 
-function buildCompareOption() {
+const displayScale = computed(() => {
+  const vals = collectPowerMagnitudes(daySeries.value, props.metrics)
+  const maxVal = vals.length ? Math.max(...vals) : 0
+  const useMW = maxVal >= POWER_MW_THRESHOLD_KW
+  return {
+    useMW,
+    pFactor: useMW ? 0.001 : 1,
+    pUnit: useMW ? 'MW' : 'kW',
+    eFactor: useMW ? 0.001 : 1,
+    eUnit: useMW ? 'MWh' : 'kWh',
+  }
+})
+
+function fmtFixed2(n) {
+  return n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/** SOC: DB가 0~1 비율이면 %로, 이미 0~100이면 그대로 정수 % */
+function toSocPercentNumber(v) {
+  if (!Number.isFinite(v)) return NaN
+  if (v >= 0 && v <= 1) return v * 100
+  if (v > 1 && v <= 100) return v
+  return v * 100
+}
+
+function formatSocPct(value) {
+  const pct = toSocPercentNumber(Number(value))
+  if (!Number.isFinite(pct)) return '—'
+  return `${Math.round(pct)}%`
+}
+
+function formatPowerKw(rawKw) {
+  if (!Number.isFinite(Number(rawKw))) return '—'
+  const v = Number(rawKw) * displayScale.value.pFactor
+  return `${fmtFixed2(v)} ${displayScale.value.pUnit}`
+}
+
+function formatSignedPowerKw(rawKw) {
+  if (!Number.isFinite(Number(rawKw))) return '—'
+  const raw = Number(rawKw)
+  const v = Math.abs(raw) * displayScale.value.pFactor
+  const s = fmtFixed2(v)
+  if (raw === 0) return `0.00 ${displayScale.value.pUnit}`
+  return `${raw > 0 ? '+' : '-'}${s} ${displayScale.value.pUnit}`
+}
+
+function formatPriceKwh(raw) {
+  if (!Number.isFinite(Number(raw))) return '—'
+  return `${fmtFixed2(Number(raw))} 원/kWh`
+}
+
+function formatEnergyKwh(rawKwh) {
+  if (!Number.isFinite(Number(rawKwh))) return '—'
+  const v = Number(rawKwh) * displayScale.value.eFactor
+  return `${fmtFixed2(v)} ${displayScale.value.eUnit}`
+}
+
+const peakDisplay = computed(() => {
+  const raw = Number(props.metrics?.peak_reduction)
+  const { pFactor, pUnit } = displayScale.value
+  const titleDefault = '피크 감소량'
+  if (!Number.isFinite(raw)) return { title: titleDefault, body: '—' }
+  const mag = Math.abs(raw) * pFactor
+  const str = fmtFixed2(mag)
+  if (raw < 0) return { title: titleDefault, body: `${str} ${pUnit} 감소` }
+  if (raw > 0) return { title: '피크 변화량', body: `${str} ${pUnit} 증가` }
+  return { title: titleDefault, body: `0.00 ${pUnit}` }
+})
+
+function fmtCompareTime(d) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+function buildCompareOption(scale) {
   const values = daySeries.value
     .flatMap((row) => [row.actual, row.pred_1_step, row.pred_24_step, row.rt_result])
     .filter(Number.isFinite)
@@ -96,16 +211,46 @@ function buildCompareOption() {
       type: 'value',
       min: yMin,
       max: yMax,
+      name: scale.pUnit,
+      nameTextStyle: { color: '#8898aa', fontSize: 10 },
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: {
         color: '#8898aa',
         fontSize: 10,
-        formatter: (v) => `${Math.round(v)}`,
+        formatter: (v) => {
+          if (!Number.isFinite(v)) return ''
+          if (scale.useMW) return fmtFixed2(v * scale.pFactor)
+          return `${Math.round(v)}`
+        },
       },
       splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#1a1a2e',
+      borderColor: 'transparent',
+      borderRadius: 10,
+      padding: [10, 14],
+      textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
+      axisPointer: { lineStyle: { color: '#dee2e6', type: 'dashed' } },
+      formatter: (params) => {
+        if (!params?.length) return ''
+        const d = new Date(params[0].value[0])
+        let html = `<div style="font-weight:700;margin-bottom:6px;color:#c8c8e0;">${fmtCompareTime(d)}</div>`
+        for (const p of params) {
+          const y = Number(p.value[1])
+          if (!Number.isFinite(y)) continue
+          const valStr = fmtFixed2(y * scale.pFactor)
+          html += `<div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};"></span>
+            <span style="color:#a0a0c0;">${p.seriesName}</span>
+            <b style="margin-left:auto;font-size:13px;">${valStr} ${scale.pUnit}</b>
+          </div>`
+        }
+        return html
+      },
+    },
     series: [
       {
         name: '실측 부하',
@@ -143,7 +288,13 @@ function buildCompareOption() {
   }
 }
 
-function buildOption() {
+function buildOption(scale) {
+  const pAxisFormatter = (v) => {
+    if (!Number.isFinite(v)) return ''
+    if (scale.useMW) return fmtFixed2(v * scale.pFactor)
+    return `${Math.round(v)}`
+  }
+
   return {
     backgroundColor: 'transparent',
     grid: { left: 52, right: 52, top: 40, bottom: 34 },
@@ -161,16 +312,20 @@ function buildOption() {
     yAxis: [
       {
         type: 'value',
-        name: 'kW',
+        name: scale.pUnit,
         nameTextStyle: { color: '#8898aa', fontSize: 10 },
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#8898aa', fontSize: 10 },
+        axisLabel: {
+          color: '#8898aa',
+          fontSize: 10,
+          formatter: pAxisFormatter,
+        },
         splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
       },
       {
         type: 'value',
-        name: 'SOC/Price',
+        name: 'SOC/가격',
         nameTextStyle: { color: '#8898aa', fontSize: 10 },
         axisLine: { show: false },
         axisTick: { show: false },
@@ -178,7 +333,42 @@ function buildOption() {
         splitLine: { show: false },
       },
     ],
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#1a1a2e',
+      borderColor: 'transparent',
+      borderRadius: 10,
+      padding: [10, 14],
+      textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
+      axisPointer: { lineStyle: { color: '#dee2e6', type: 'dashed' } },
+      formatter: (params) => {
+        if (!params?.length) return ''
+        const d = new Date(params[0].value[0])
+        let html = `<div style="font-weight:700;margin-bottom:6px;color:#c8c8e0;">${fmtCompareTime(d)}</div>`
+        for (const p of params) {
+          const y = Number(p.value[1])
+          let rowHtml = ''
+          if (p.seriesName === '배터리 SOC') {
+            const pct = toSocPercentNumber(y)
+            const label = Number.isFinite(pct) ? `${Math.round(pct)}%` : '—'
+            rowHtml = `<b style="margin-left:auto;font-size:13px;">${label}</b>`
+          } else if (p.seriesName === '전력 가격') {
+            const label = Number.isFinite(y) ? `${fmtFixed2(y)} 원/kWh` : '—'
+            rowHtml = `<b style="margin-left:auto;font-size:13px;">${label}</b>`
+          } else if (Number.isFinite(y)) {
+            rowHtml = `<b style="margin-left:auto;font-size:13px;">${fmtFixed2(y * scale.pFactor)} ${scale.pUnit}</b>`
+          } else {
+            rowHtml = '<b style="margin-left:auto;">—</b>'
+          }
+          html += `<div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};"></span>
+            <span style="color:#a0a0c0;">${p.seriesName}</span>
+            ${rowHtml}
+          </div>`
+        }
+        return html
+      },
+    },
     series: [
       {
         name: '충전 전력',
@@ -216,13 +406,14 @@ function buildOption() {
 
 async function draw() {
   await nextTick()
+  const scale = displayScale.value
   if (compareChartEl.value) {
     if (!compareChart) compareChart = echarts.init(compareChartEl.value)
-    compareChart.setOption(buildCompareOption(), true)
+    compareChart.setOption(buildCompareOption(scale), true)
   }
   if (!essChartEl.value) return
   if (!essChart) essChart = echarts.init(essChartEl.value)
-  essChart.setOption(buildOption(), true)
+  essChart.setOption(buildOption(scale), true)
 }
 
 onMounted(() => setTimeout(draw, 100))
@@ -230,7 +421,67 @@ onUnmounted(() => {
   compareChart?.dispose()
   essChart?.dispose()
 })
-watch(() => props.series, draw, { deep: true })
-watch(() => props.selectedDate, draw)
+watch([() => props.series, () => props.selectedDate, () => props.metrics], draw, { deep: true })
 </script>
 
+<style scoped>
+/* 차트 : KPI = 2 : 1 (우측 flex-basis가 차지하던 폭을 그리드로 고정) */
+.ess-split-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.ess-chart-panel {
+  min-width: 0;
+}
+
+.ess-kpi-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .ess-split-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ess-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ess-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 2px 0;
+}
+
+.ess-stat-label {
+  color: var(--text2, #8898aa);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.ess-stat-label::after {
+  content: ' :';
+}
+
+.ess-stat-value {
+  font-weight: 600;
+  color: var(--text1, #32325d);
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+</style>

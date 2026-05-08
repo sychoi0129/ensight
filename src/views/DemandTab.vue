@@ -7,11 +7,6 @@
         <span class="toggle-track"><span class="toggle-thumb"></span></span>
         신뢰구간
       </label>
-      <label class="toggle-wrap">
-        <input type="checkbox" v-model="showNews" />
-        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        뉴스 오버레이
-      </label>
     </div>
 
     <div class="row" style="gap:14px; align-items:stretch;">
@@ -96,7 +91,6 @@ const props = defineProps({
 const chartEl = ref(null)
 let chart = null
 const showCi = ref(true)
-const showNews = ref(true)
 
 const sortedSeries = computed(() =>
   [...props.series].sort((a, b) => new Date(a.ts) - new Date(b.ts))
@@ -215,21 +209,6 @@ function buildOption() {
     })
   }
 
-  if (showNews.value && props.newsView.length) {
-    series.push({
-      name: '뉴스',
-      type: 'scatter',
-      data: props.newsView.map((r) => ({
-        value: [r.timestamp, yMin + (yMax - yMin) * 0.015],
-        headline: r.headline,
-        event_type: r.event_type ?? '뉴스',
-      })),
-      symbol: 'diamond',
-      symbolSize: 12,
-      itemStyle: { color: '#f5365c', borderColor: 'rgba(245,54,92,0.25)', borderWidth: 8 },
-    })
-  }
-
   return {
     backgroundColor: 'transparent',
     grid: { left: 52, right: 20, top: 44, bottom: 36 },
@@ -266,11 +245,6 @@ function buildOption() {
       textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
       axisPointer: { lineStyle: { color: '#dee2e6', type: 'dashed' } },
       formatter: params => {
-        const news = params.find((p) => p.seriesName === '뉴스')
-        if (news) {
-          return `<div style="font-weight:700;margin-bottom:4px;">${news.data.event_type}</div>
-                  <div style="font-size:11px;color:#c0c0d8;">${news.data.headline}</div>`
-        }
         if (!params.length) return ''
         const d = new Date(params[0].value[0])
         return `<div style="font-weight:700;margin-bottom:6px;color:#c8c8e0;">${fmtTime(d)}</div>` +
@@ -296,5 +270,5 @@ async function draw() {
 
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => chart?.dispose())
-watch([() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, () => props.newsView, showCi, showNews], draw, { deep: true })
+watch([() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, showCi], draw, { deep: true })
 </script>
