@@ -1,20 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import text
 
-from app.core.db import check_db_connection
+from app.core.db import SessionLocal
 
 router = APIRouter()
 
 
 @router.get("/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
-
-
-@router.get("/health/db")
-def health_db_check() -> dict[str, str]:
+def health_check() -> dict[str, int | str]:
     try:
-        check_db_connection()
-        return {"status": "ok", "database": "connected"}
-    except SQLAlchemyError:
-        return {"status": "error", "database": "disconnected"}
+        with SessionLocal() as db:
+            db_value = db.execute(text("SELECT 1")).scalar_one()
+        return {"status": "ok", "db": int(db_value)}
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"DB connection failed: {exc}") from exc

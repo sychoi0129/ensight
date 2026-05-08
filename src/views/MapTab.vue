@@ -2,7 +2,7 @@
   <div>
     <div class="row" style="gap:14px;">
       <div class="panel" style="flex:1.2; min-width:0;">
-        <div class="section-label">지역별 평균 전력 수요</div>
+        <div class="section-label">지역별 피크 부하 현황</div>
         <div ref="mapEl" style="width:100%; height:380px;"></div>
       </div>
       <div class="panel" style="flex:1.8; min-width:0;">
@@ -32,7 +32,7 @@ async function drawMap() {
     type: 'scattergeo',
     lat: props.mapDf.map(r => r.lat),
     lon: props.mapDf.map(r => r.lng),
-    text: props.mapDf.map(r => `${r.region}  ${r.avg_load.toFixed(1)} W`),
+    text: props.mapDf.map(r => `${r.region}  ${r.avg_load.toFixed(1)} kW`),
     mode: 'markers+text', textposition: 'top center',
     textfont: { size: 9, color: '#8898aa' },
     marker: {
@@ -40,7 +40,7 @@ async function drawMap() {
       color: props.mapDf.map(r => r.avg_load),
       colorscale: [[0,'#e8ebfc'],[0.4,'#5865f2'],[1,'#c0b0ff']],
       showscale: true,
-      colorbar: { title:{text:'W',font:{color:'#8898aa',size:10}}, thickness:8, len:0.5, tickfont:{color:'#8898aa',size:9} },
+      colorbar: { title:{text:'kW',font:{color:'#8898aa',size:10}}, thickness:8, len:0.5, tickfont:{color:'#8898aa',size:9} },
       line: { color: '#c8d0da', width: 0.5 },
     },
     hovertemplate: '%{text}<extra></extra>',
@@ -67,18 +67,20 @@ async function drawBar() {
   if (!barChart) barChart = echarts.init(barEl.value)
 
   const sorted = [...props.mapDf].sort((a, b) => a.avg_load - b.avg_load)
-  const maxVal = Math.max(...sorted.map(r => r.avg_load))
-  const minVal = Math.min(...sorted.map(r => r.avg_load))
-
   barChart.setOption({
     backgroundColor: 'transparent',
     grid: { left: 10, right: 70, top: 8, bottom: 8, containLabel: true },
     xAxis: {
       type: 'value',
-      min: minVal * 0.95,
-      max: maxVal * 1.05,
+      min: 0,
+      max: 1000,
       axisLine: { show: false }, axisTick: { show: false },
-      axisLabel: { color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard' },
+      axisLabel: {
+        color: '#8898aa',
+        fontSize: 10,
+        fontFamily: 'Pretendard',
+        formatter: (v) => `${Math.round(v)}`,
+      },
       splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     yAxis: {
@@ -94,7 +96,7 @@ async function drawBar() {
       borderRadius: 8,
       padding: [8, 12],
       textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard' },
-      formatter: p => `<b>${p.name}</b><br><span style="color:#c0b0ff;">${p.value.toFixed(1)} W</span>`,
+      formatter: p => `<b>${p.name}</b><br><span style="color:#c0b0ff;">${p.value.toFixed(1)} kW</span>`,
     },
     series: [{
       type: 'bar',
