@@ -39,7 +39,7 @@
               <thead>
                 <tr style="border-bottom:2px solid var(--border);">
                   <th style="padding:6px 8px; text-align:left; color:var(--text3); font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:.06em;">시각</th>
-                  <th style="padding:6px 8px; text-align:right; color:var(--text3); font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:.06em;">예측 (W)</th>
+                  <th style="padding:6px 8px; text-align:right; color:var(--text3); font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:.06em;">예측 ({{ demandDisplayScale.pUnit }})</th>
                   <th style="padding:6px 8px; text-align:right; color:var(--text3); font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:.06em;">범위</th>
                 </tr>
               </thead>
@@ -50,15 +50,15 @@
                   </td>
                   <td style="padding:7px 8px; text-align:right; font-family:var(--mono); font-weight:600;"
                     :style="{
-                      color: Number(row.pred_1_step) === Number(predMax) ? '#f5365c'
-                          : Number(row.pred_1_step) === Number(predMin) ? '#2dce89'
+                      color: forecastStats && Number(row.pred_1_step) === forecastStats.max ? '#f5365c'
+                          : forecastStats && Number(row.pred_1_step) === forecastStats.min ? '#2dce89'
                           : 'var(--text1)'
                     }"
                   >
-                    {{ formatValue(row.pred_1_step) }}
+                    {{ formatDemandValue(row.pred_1_step) }}
                   </td>
                   <td style="padding:7px 8px; text-align:right; color:var(--text3); font-family:var(--mono); font-size:11px;">
-                    {{ formatValue((row.pred_1_step ?? 0) - 6) }} – {{ formatValue((row.pred_1_step ?? 0) + 6) }}
+                    {{ formatDemandValue((row.pred_1_step ?? 0) - 6) }} – {{ formatDemandValue((row.pred_1_step ?? 0) + 6) }}
                   </td>
                 </tr>
               </tbody>
@@ -91,6 +91,12 @@ const props = defineProps({
 const chartEl = ref(null)
 let chart = null
 const showCi = ref(true)
+
+const POWER_MW_THRESHOLD_KW = 1000
+
+function fmtFixed2(n) {
+  return n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 const sortedSeries = computed(() =>
   [...props.series].sort((a, b) => new Date(a.ts) - new Date(b.ts))
@@ -129,18 +135,58 @@ const forecastPlotRows = computed(() => {
   ]
 })
 
+const demandDisplayScale = computed(() => {
+  const vals = []
+  for (const row of histRows.value) {
+    for (const k of ['actual', 'pred_1_step']) {
+      const v = Number(row[k])
+      if (Number.isFinite(v)) vals.push(Math.abs(v))
+    }
+  }
+  for (const row of forecastRows.value) {
+    const v = Number(row.pred_1_step)
+    if (Number.isFinite(v)) vals.push(Math.abs(v))
+    if (showCi.value) {
+      const u = Number((row.pred_1_step ?? 0) + 6)
+      if (Number.isFinite(u)) vals.push(Math.abs(u))
+    }
+  }
+  const maxVal = vals.length ? Math.max(...vals) : 0
+  const useMW = maxVal >= POWER_MW_THRESHOLD_KW
+  return {
+    useMW,
+    pFactor: useMW ? 0.001 : 1,
+    pUnit: useMW ? 'MW' : 'kW',
+  }
+})
+
+const forecastStats = computed(() => {
+  if (!forecastRows.value.length) return null
+  const nums = forecastRows.value.map((row) => Number(row.pred_1_step)).filter(Number.isFinite)
+  if (!nums.length) return null
+  const min = Math.min(...nums)
+  const max = Math.max(...nums)
+  const mean = nums.reduce((a, b) => a + b, 0) / nums.length
+  return { min, max, mean }
+})
+
 const predMean = computed(() => {
-  if (!forecastRows.value.length) return '—'
-  const mean = forecastRows.value.reduce((acc, row) => acc + (row.pred_1_step ?? 0), 0) / forecastRows.value.length
-  return mean.toFixed(1)
+  const s = forecastStats.value
+  if (!s) return '—'
+  const { pFactor, pUnit } = demandDisplayScale.value
+  return `${fmtFixed2(s.mean * pFactor)} ${pUnit}`
 })
 const predMax = computed(() => {
-  if (!forecastRows.value.length) return '—'
-  return Math.max(...forecastRows.value.map((row) => row.pred_1_step ?? 0)).toFixed(1)
+  const s = forecastStats.value
+  if (!s) return '—'
+  const { pFactor, pUnit } = demandDisplayScale.value
+  return `${fmtFixed2(s.max * pFactor)} ${pUnit}`
 })
 const predMin = computed(() => {
-  if (!forecastRows.value.length) return '—'
-  return Math.min(...forecastRows.value.map((row) => row.pred_1_step ?? 0)).toFixed(1)
+  const s = forecastStats.value
+  if (!s) return '—'
+  const { pFactor, pUnit } = demandDisplayScale.value
+  return `${fmtFixed2(s.min * pFactor)} ${pUnit}`
 })
 
 const fmtTime = d => {
@@ -148,9 +194,10 @@ const fmtTime = d => {
   return `${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-function formatValue(value) {
-  if (!Number.isFinite(value)) return '—'
-  return Number(value).toFixed(2)
+function formatDemandValue(value) {
+  if (!Number.isFinite(Number(value))) return '—'
+  const v = Number(value) * demandDisplayScale.value.pFactor
+  return fmtFixed2(v)
 }
 
 function buildOption() {
@@ -158,12 +205,22 @@ function buildOption() {
     return { xAxis: { type: 'time' }, yAxis: { type: 'value' }, series: [] }
   }
 
-  const values = [...histRows.value, ...forecastRows.value]
+  const scale = demandDisplayScale.value
+
+  const valueList = [...histRows.value, ...forecastRows.value]
     .flatMap((row) => [row.actual, row.pred_1_step])
     .filter(Number.isFinite)
+  if (showCi.value && forecastRows.value.length) {
+    for (const r of forecastRows.value) {
+      const u = Number((r.pred_1_step ?? 0) + 6)
+      if (Number.isFinite(u)) valueList.push(u)
+    }
+  }
 
-  const yMin = Math.min(...values) * 0.97
-  const yMax = Math.max(...values, ...(showCi.value ? forecastRows.value.map((r) => (r.pred_1_step ?? 0) + 6) : [])) * 1.03
+  const rawMin = valueList.length ? Math.min(...valueList) * 0.97 : undefined
+  const rawMax = valueList.length ? Math.max(...valueList) * 1.03 : undefined
+  const yMinTick = Number.isFinite(rawMin) ? Math.floor(rawMin) : undefined
+  const yMaxTick = Number.isFinite(rawMax) ? Math.ceil(rawMax) : undefined
 
   const series = [
     {
@@ -211,9 +268,9 @@ function buildOption() {
 
   return {
     backgroundColor: 'transparent',
-    grid: { left: 52, right: 20, top: 44, bottom: 36 },
+    grid: { left: 60, right: 20, top: 44, bottom: 36 },
     legend: {
-      top: 6, left: 0,
+      top: 8, left: 0,
       itemWidth: 24, itemHeight: 3,
       textStyle: { color: '#8898aa', fontSize: 11, fontFamily: 'Pretendard' },
     },
@@ -231,9 +288,37 @@ function buildOption() {
       splitLine: { show: false },
     },
     yAxis: {
-      type: 'value', min: yMin, max: yMax,
-      axisLine: { show: false }, axisTick: { show: false },
-      axisLabel: { color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard', formatter: v => Math.round(v) },
+      type: 'value',
+      min: yMinTick,
+      max: yMaxTick,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: {
+        fontSize: 10,
+        fontFamily: 'Pretendard',
+        formatter: (v) => {
+          if (!Number.isFinite(v)) return ''
+          const numStr = scale.useMW ? fmtFixed2(v * scale.pFactor) : `${Math.round(v)}`
+          if (Number.isFinite(yMinTick) && Math.abs(v - yMinTick) < 1e-4) {
+            return `{unit|${scale.pUnit}}{val|\u00A0${numStr}}`
+          }
+          return `{val|${numStr}}`
+        },
+        rich: {
+          unit: {
+            color: '#1a1a1a',
+            fontWeight: 700,
+            fontSize: 10,
+            fontFamily: 'Pretendard',
+          },
+          val: {
+            color: '#8898aa',
+            fontWeight: 400,
+            fontSize: 10,
+            fontFamily: 'Pretendard',
+          },
+        },
+      },
       splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     tooltip: {
@@ -248,13 +333,16 @@ function buildOption() {
         if (!params.length) return ''
         const d = new Date(params[0].value[0])
         return `<div style="font-weight:700;margin-bottom:6px;color:#c8c8e0;">${fmtTime(d)}</div>` +
-          params.map((p) => (
-            `<div style="display:flex;align-items:center;gap:6px;">
+          params.map((p) => {
+            const y = Number(p.value[1])
+            if (!Number.isFinite(y)) return ''
+            const valStr = fmtFixed2(y * scale.pFactor)
+            return `<div style="display:flex;align-items:center;gap:6px;">
               <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};"></span>
               <span style="color:#a0a0c0;">${p.seriesName}</span>
-              <b style="margin-left:auto;font-size:13px;">${Number(p.value[1]).toFixed(1)}</b>
+              <b style="margin-left:auto;font-size:13px;">${valStr} ${scale.pUnit}</b>
             </div>`
-          )).join('')
+          }).join('')
       },
     },
     series,
@@ -270,5 +358,9 @@ async function draw() {
 
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => chart?.dispose())
-watch([() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, showCi], draw, { deep: true })
+watch(
+  [() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, showCi, demandDisplayScale],
+  draw,
+  { deep: true }
+)
 </script>

@@ -194,9 +194,9 @@ function buildCompareOption(scale) {
 
   return {
     backgroundColor: 'transparent',
-    grid: { left: 52, right: 20, top: 44, bottom: 36 },
+    grid: { left: 60, right: 20, top: 44, bottom: 36 },
     legend: {
-      top: 6,
+      top: 8,
       left: 0,
       textStyle: { color: '#8898aa', fontSize: 11, fontFamily: 'Pretendard' },
     },
@@ -211,17 +211,31 @@ function buildCompareOption(scale) {
       type: 'value',
       min: yMin,
       max: yMax,
-      name: scale.pUnit,
-      nameTextStyle: { color: '#8898aa', fontSize: 10 },
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: {
-        color: '#8898aa',
         fontSize: 10,
         formatter: (v) => {
           if (!Number.isFinite(v)) return ''
-          if (scale.useMW) return fmtFixed2(v * scale.pFactor)
-          return `${Math.round(v)}`
+          const numStr = scale.useMW ? fmtFixed2(v * scale.pFactor) : `${Math.round(v)}`
+          if (Number.isFinite(yMin) && Math.abs(v - yMin) < 1e-4) {
+            return `{unit|${scale.pUnit}}{val|\u00A0${numStr}}`
+          }
+          return `{val|${numStr}}`
+        },
+        rich: {
+          unit: {
+            color: '#1a1a1a',
+            fontWeight: 700,
+            fontSize: 10,
+            fontFamily: 'Pretendard',
+          },
+          val: {
+            color: '#8898aa',
+            fontWeight: 400,
+            fontSize: 10,
+            fontFamily: 'Pretendard',
+          },
         },
       },
       splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
@@ -425,10 +439,10 @@ watch([() => props.series, () => props.selectedDate, () => props.metrics], draw,
 </script>
 
 <style scoped>
-/* 차트 : KPI = 2 : 1 (우측 flex-basis가 차지하던 폭을 그리드로 고정) */
+/* 차트 : KPI = 5 : 1 (기존 2:1 대비 우측 카드 폭 약 절반) */
 .ess-split-row {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 5fr 1fr;
   gap: 14px;
   align-items: stretch;
 }
