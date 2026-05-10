@@ -148,11 +148,11 @@ import peakIcon from '@/assets/images/icons/peak.png'
 import tempIcon from '@/assets/images/icons/temperature.png'
 import newsIcon from '@/assets/images/icons/news.png'
 
-// VITE_API_BASE_URL: 호스트만 또는 .../api 까지 (중복 /api 방지)
+// VITE_API_BASE_URL: 비워두면 같은 origin('/api') 사용 → Vite 프록시가 백엔드로 전달.
+// 호스트(또는 .../api)를 명시하면 절대경로로 호출 (배포 환경에서 다른 도메인 백엔드 쓸 때).
 function resolveApiRoot() {
   const raw = import.meta.env.VITE_API_BASE_URL
-  const fallbackHost = "http://127.0.0.1:8000"
-  if (raw == null || String(raw).trim() === "") return `${fallbackHost}/api`
+  if (raw == null || String(raw).trim() === "") return "/api"
   let base = String(raw).trim().replace(/\/$/, "")
   if (!base.endsWith("/api")) base = `${base}/api`
   return base

@@ -4,6 +4,15 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+const BACKEND_TARGET = process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000'
+
+const proxyConfig = {
+  '/api': {
+    target: BACKEND_TARGET,
+    changeOrigin: true,
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -14,5 +23,11 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
+  },
+  server: {
+    proxy: proxyConfig,
+  },
+  preview: {
+    proxy: proxyConfig,
   },
 })
