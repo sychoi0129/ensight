@@ -133,10 +133,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import DemandTab from '@/views/DemandTab.vue'
-import EssTab from '@/views/EssTab.vue'
-import MapTab from '@/views/MapTab.vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+
+const DemandTab = defineAsyncComponent(() => import('@/views/DemandTab.vue'))
+const EssTab = defineAsyncComponent(() => import('@/views/EssTab.vue'))
+const MapTab = defineAsyncComponent(() => import('@/views/MapTab.vue'))
 import { summarizeXai } from '@/composables/useXai'
 import { REGION_COORDS } from '@/constants/settings'
 import demandIcon from '@/assets/images/icons/demand.png'

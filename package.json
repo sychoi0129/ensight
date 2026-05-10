@@ -7,10 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start" : "serve -s dist -l 4173"
+    "start": "serve -s dist -l 4173"
   },
   "dependencies": {
+    "@deck.gl/core": "^9.3.2",
+    "@deck.gl/layers": "^9.3.2",
+    "@deck.gl/mapbox": "^9.3.2",
     "echarts": "^6.0.0",
+    "maplibre-gl": "^5.24.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.31",
     "vue-echarts": "^8.0.1",
