@@ -1,11 +1,24 @@
-from pydantic import Field
+import json
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "Ensight API"
     api_prefix: str = "/api"
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            s = v.strip()
+            if s.startswith("["):
+                return json.loads(s)
+            parts = [x.strip() for x in s.split(",") if x.strip()]
+            return parts if parts else ["http://localhost:5173"]
+        return v
     db_host: str = Field(default="127.0.0.1", alias="DB_HOST")
     db_port: int = Field(default=5432, alias="DB_PORT")
     db_name: str = Field(default="postgres", alias="DB_NAME")

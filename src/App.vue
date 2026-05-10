@@ -147,7 +147,20 @@ import peakIcon from '@/assets/images/icons/peak.png'
 import tempIcon from '@/assets/images/icons/temperature.png'
 import newsIcon from '@/assets/images/icons/news.png'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+// VITE_API_BASE_URL: 호스트만 또는 .../api 까지 (중복 /api 방지)
+function resolveApiRoot() {
+  const raw = import.meta.env.VITE_API_BASE_URL
+  const fallbackHost = "http://127.0.0.1:8000"
+  if (raw == null || String(raw).trim() === "") return `${fallbackHost}/api`
+  let base = String(raw).trim().replace(/\/$/, "")
+  if (!base.endsWith("/api")) base = `${base}/api`
+  return base
+}
+
+function apiUrl(path) {
+  const p = path.startsWith("/") ? path : `/${path}`
+  return `${resolveApiRoot()}${p}`
+}
 
 const regions = ref([])
 const selectedRegionId = ref(null)
@@ -374,7 +387,7 @@ function resolveRegionCoords(regionName) {
 
 async function fetchRegions() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/regions`)
+    const res = await fetch(apiUrl("/regions"))
     if (!res.ok) throw new Error(`regions API failed (${res.status})`)
     const data = await res.json()
     regions.value = data
@@ -386,7 +399,7 @@ async function fetchRegions() {
 }
 
 async function fetchLatestDate(regionId) {
-  const res = await fetch(`${API_BASE_URL}/api/latest-date?region_id=${regionId}`)
+  const res = await fetch(`${apiUrl("/latest-date")}?region_id=${regionId}`)
   if (!res.ok) {
     const txt = await res.text()
     throw new Error(`latest-date API failed (${res.status}): ${txt}`)
@@ -415,7 +428,7 @@ async function fetchNewsCount() {
   const startDate = subtractDays(selectedDate.value, 6)
   const endDate = addDay(selectedDate.value)
   const url =
-    `${API_BASE_URL}/api/news-count?region_id=${selectedRegionId.value}` +
+    `${apiUrl("/news-count")}?region_id=${selectedRegionId.value}` +
     `&start=${startDate}&end=${endDate}`
   try {
     const res = await fetch(url)
@@ -436,7 +449,7 @@ async function fetchWeather() {
   const startDate = subtractDays(selectedDate.value, 6)
   const endDate = addDay(selectedDate.value)
   const url =
-    `${API_BASE_URL}/api/weather?region_id=${selectedRegionId.value}` +
+    `${apiUrl("/weather")}?region_id=${selectedRegionId.value}` +
     `&start=${startDate}&end=${endDate}`
   try {
     const res = await fetch(url)
@@ -459,7 +472,7 @@ async function fetchCompare() {
   const startDate = subtractDays(selectedDate.value, 6)
   const endDate = addDay(selectedDate.value)
   const url =
-    `${API_BASE_URL}/api/compare?region_id=${selectedRegionId.value}` +
+    `${apiUrl("/compare")}?region_id=${selectedRegionId.value}` +
     `&start=${startDate}&end=${endDate}`
 
   try {
@@ -492,7 +505,7 @@ async function fetchRegionalStatus() {
   const endDate = addDay(selectedDate.value)
   const requests = regions.value.map(async (region) => {
     const url =
-      `${API_BASE_URL}/api/metrics?region_id=${region.region_id}` +
+      `${apiUrl("/metrics")}?region_id=${region.region_id}` +
       `&start=${selectedDate.value}&end=${endDate}`
     const res = await fetch(url)
     if (!res.ok) {
