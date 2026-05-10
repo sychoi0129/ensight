@@ -3,12 +3,14 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes.common import row_to_dict
+from app.core.cache import cache_response
 from app.core.db import SessionLocal
 
 router = APIRouter()
 
 
 @router.get("/weather")
+@cache_response(ttl_seconds=600)
 def get_weather(
     region_id: int = Query(...),
     start: str = Query(...),

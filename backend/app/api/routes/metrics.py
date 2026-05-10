@@ -3,6 +3,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes.common import row_to_dict
+from app.core.cache import cache_response
 from app.core.db import SessionLocal
 
 router = APIRouter()
@@ -24,6 +25,7 @@ _METRICS_SELECT = """
 
 
 @router.get("/metrics")
+@cache_response(ttl_seconds=300)
 def get_metrics(
     region_id: int = Query(...),
     start: str = Query(...),
@@ -50,6 +52,7 @@ def get_metrics(
 
 
 @router.get("/metrics-bulk")
+@cache_response(ttl_seconds=300)
 def get_metrics_bulk(
     start: str = Query(...),
     end: str = Query(...),

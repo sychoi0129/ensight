@@ -22,7 +22,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { WEATHER_METRIC_MAP } from '@/constants/settings'
-import * as echarts from 'echarts'
+import echarts from '@/plugins/echarts'
 
 const props = defineProps({
   weatherView: { type: Array, default: () => [] },

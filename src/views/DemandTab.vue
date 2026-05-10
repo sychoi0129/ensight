@@ -76,7 +76,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/plugins/echarts'
 import XaiTab from '@/views/XaiTab.vue'
 
 const props = defineProps({

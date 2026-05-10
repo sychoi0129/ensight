@@ -3,12 +3,14 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes.common import row_to_dict
+from app.core.cache import cache_response
 from app.core.db import SessionLocal
 
 router = APIRouter()
 
 
 @router.get("/compare")
+@cache_response(ttl_seconds=300)
 def get_compare(
     region_id: int = Query(...),
     start: str = Query(...),

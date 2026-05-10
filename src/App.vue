@@ -12,20 +12,20 @@
       <div class="sidebar-section-label">조회 조건</div>
       <div class="sidebar-controls">
         <div class="ctrl-group">
-          <label class="form-label">지역</label>
-          <select class="form-select" v-model.number="selectedRegionId">
+          <label class="form-label" for="filter-region">지역</label>
+          <select id="filter-region" class="form-select" v-model.number="selectedRegionId">
             <option v-for="region in regions" :key="region.region_id" :value="region.region_id">
               {{ region.region_name }}
             </option>
           </select>
         </div>
         <div class="ctrl-group">
-          <label class="form-label">날짜</label>
-          <input type="date" class="form-select" v-model="selectedDate" />
+          <label class="form-label" for="filter-date">날짜</label>
+          <input id="filter-date" type="date" class="form-select" v-model="selectedDate" />
         </div>
         <div class="ctrl-group">
-          <label class="form-label">시간</label>
-          <select class="form-select" v-model="selectedTime">
+          <label class="form-label" for="filter-time">시간</label>
+          <select id="filter-time" class="form-select" v-model="selectedTime">
             <option v-for="t in availableTimes" :key="t">{{ t }}</option>
           </select>
         </div>
@@ -38,7 +38,7 @@
           class="nav-item" :class="{ active: activeTab === tab.key }"
           @click="activeTab = tab.key"
         >
-          <img :src="tab.icon" :alt="tab.label" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;" />
+          <img :src="tab.icon" alt="" aria-hidden="true" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;" />
           <span>{{ tab.label }}</span>
         </button>
       </nav>
@@ -69,7 +69,7 @@
               <div class="kpi-value">{{ latestPower }}</div>
               <div class="kpi-unit">kW · 선택 시간 기준</div>
             </div>
-            <div class="kpi-icon blue"><img :src="powerIcon" alt="직전 전력" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="powerIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card warn">
@@ -79,7 +79,7 @@
               <div class="kpi-value">{{ loadPeak }}</div>
               <div class="kpi-unit">kW · 일 구간 최대값</div>
             </div>
-            <div class="kpi-icon blue"><img :src="peakIcon" alt="피크 부하" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="peakIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card info">
@@ -89,7 +89,7 @@
               <div class="kpi-value">{{ avgTemp }}°</div>
               <div class="kpi-unit">°C · 선택 구간 평균</div>
             </div>
-            <div class="kpi-icon blue"><img :src="tempIcon" alt="평균 기온" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="tempIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card alert">
@@ -99,7 +99,7 @@
               <div class="kpi-value">{{ newsKeywordCount }}</div>
               <div class="kpi-unit">해당 지역/날짜 키워드 카운트</div>
             </div>
-            <div class="kpi-icon blue"><img :src="newsIcon" alt="뉴스 이벤트" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="newsIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
       </div>

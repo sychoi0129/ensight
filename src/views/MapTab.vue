@@ -19,7 +19,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/plugins/echarts'
 
 const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)

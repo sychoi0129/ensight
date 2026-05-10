@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from decimal import Decimal
 
 from app.api.routes.common import row_to_dict
+from app.core.cache import cache_response
 from app.core.db import SessionLocal
 
 router = APIRouter()
@@ -98,6 +99,7 @@ def _expand_news_rows(rows: list[dict], date_col: str | None) -> list[dict]:
 
 
 @router.get("/news-count")
+@cache_response(ttl_seconds=300)
 def get_news_count(
     region_id: int = Query(...),
     start: str = Query(...),

@@ -70,7 +70,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/plugins/echarts'
 
 const POWER_KEYS = ['charge_kw', 'discharge_kw', 'ess_adjustment_kw', 'rt_result', 'actual', 'pred_1_step', 'pred_24_step']
 const POWER_MW_THRESHOLD_KW = 1000

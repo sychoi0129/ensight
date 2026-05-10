@@ -30,7 +30,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/plugins/echarts'
 
 const props = defineProps({
   xaiResult: { type: Object, default: () => ({ text: '', factors: [] }) },
