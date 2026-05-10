@@ -503,29 +503,34 @@ async function fetchCompare() {
 async function fetchRegionalStatus() {
   if (!regions.value.length || !selectedDate.value) return
   const endDate = addDay(selectedDate.value)
-  const requests = regions.value.map(async (region) => {
-    const url =
-      `${apiUrl("/metrics")}?region_id=${region.region_id}` +
-      `&start=${selectedDate.value}&end=${endDate}`
+  const url =
+    `${apiUrl("/metrics-bulk")}?start=${selectedDate.value}&end=${endDate}`
+
+  try {
     const res = await fetch(url)
     if (!res.ok) {
       const txt = await res.text()
-      throw new Error(`metrics API failed (${res.status}): ${txt}`)
+      throw new Error(`metrics-bulk API failed (${res.status}): ${txt}`)
     }
-    const metric = await res.json()
-    const coords = resolveRegionCoords(region.region_name)
-    if (!coords) return null
-    return {
-      region: region.region_name,
-      lat: coords[0],
-      lng: coords[1],
-      avg_load: Number(metric.peak_before_ess ?? 0),
-    }
-  })
+    const rows = await res.json()
+    const metricsByRegion = new Map(
+      (Array.isArray(rows) ? rows : []).map((m) => [m.region_id, m]),
+    )
 
-  try {
-    const data = await Promise.all(requests)
-    regionalMapDf.value = data.filter((row) => row && Number.isFinite(row.avg_load))
+    regionalMapDf.value = regions.value
+      .map((region) => {
+        const metric = metricsByRegion.get(region.region_id)
+        if (!metric) return null
+        const coords = resolveRegionCoords(region.region_name)
+        if (!coords) return null
+        return {
+          region: region.region_name,
+          lat: coords[0],
+          lng: coords[1],
+          avg_load: Number(metric.peak_before_ess ?? 0),
+        }
+      })
+      .filter((row) => row && Number.isFinite(row.avg_load))
   } catch (err) {
     console.error("Failed to fetch regional status", err)
     regionalMapDf.value = []
