@@ -49,3 +49,6 @@ venv/
 # Backend secrets (never commit real credentials)
 backend/.env
 
+# Unified build artifact (frontend dist copied here at build time)
+backend/static/
+
