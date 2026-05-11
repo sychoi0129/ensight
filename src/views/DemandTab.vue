@@ -388,20 +388,32 @@ async function drawChart() {
   chart.setOption(buildOption(), true)
 }
 
+function handleResize() {
+  chart?.resize()
+  barChart?.resize()
+}
+
 async function draw() {
   await drawChart()
   await drawBar()
 }
 
-onMounted(() => setTimeout(draw, 100))
-onUnmounted(() => { chart?.dispose(); barChart?.dispose() })
+onMounted(() => {
+  setTimeout(draw, 100)
+  window.addEventListener('resize', handleResize)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  chart?.dispose()
+  barChart?.dispose()
+})
+watch(() => props.xaiResult, () => setTimeout(drawBar, 50), { deep: true })
+watch(() => props.newsView,  () => setTimeout(drawBar, 50))
+watch(barHeight, () => setTimeout(drawBar, 50))
 watch(
   [() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, showCi, demandDisplayScale],
   drawChart, { deep: true }
 )
-watch(() => props.xaiResult, () => setTimeout(drawBar, 50), { deep: true })
-watch(() => props.newsView,  () => setTimeout(drawBar, 50))
-watch(barHeight, () => setTimeout(drawBar, 50))
 </script>
 
 <style scoped>
