@@ -1,14 +1,5 @@
 <template>
   <div>
-    <!-- 토글 -->
-    <div style="display:flex; gap:16px; margin-bottom:14px;">
-      <label class="toggle-wrap">
-        <input type="checkbox" v-model="showCi" />
-        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        신뢰구간
-      </label>
-    </div>
-
     <!-- 상단: 차트(좌) + AI분석설명(우) -->
     <div class="row" style="gap:14px; align-items:stretch;">
       <div class="col-2 panel" style="display:flex; flex-direction:column;">
@@ -22,7 +13,7 @@
       </div>
     </div>
 
-    <!-- 하단: 예측 테이블 + 요인 중요도 + 뉴스 이벤트 -->
+    <!-- 하단: 예측 테이블 + 날씨 현황 + 뉴스 이벤트 -->
     <div class="row" style="gap:14px; margin-top:16px; align-items:stretch;">
 
       <!-- 향후 12시간 예측 -->
@@ -53,7 +44,7 @@
             </thead>
             <tbody>
               <tr v-for="row in forecastRows" :key="row.ts" style="border-bottom:1px solid var(--border);">
-                <td style="padding:6px 8px; color:var(--text3); font-family:var(--mono); font-size:11px;">
+                <td style="padding:6px 8px; color:var(--text3); font-size:11px;">
                   {{ fmtForecastTs(row.ts) }}
                 </td>
                 <td style="padding:6px 8px; text-align:right; font-family:var(--mono); font-weight:600;"
@@ -74,10 +65,41 @@
         </div>
       </div>
 
-      <!-- 요인 중요도 -->
+      <!-- 날씨 현황 -->
       <div class="panel" style="flex:1; min-width:0;">
-        <div class="section-label">요인 중요도</div>
-        <div ref="barEl" :style="{ width: '100%', height: `${barHeight}px` }"></div>
+        <div class="section-label">날씨 현황</div>
+
+        <!-- 현재 기온/습도 -->
+        <div style="display:flex; align-items:center; gap:14px; padding:12px 14px; background:var(--bg2); border-radius:10px; margin-bottom:12px;">
+          <span style="font-size:36px; line-height:1;">{{ weatherIcon }}</span>
+          <div style="flex:1;">
+            <div style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin-bottom:4px;">현재 기온</div>
+            <div style="display:flex; align-items:baseline; justify-content:space-between;">
+              <span style="font-size:26px; font-weight:700; font-family:var(--mono); letter-spacing:-0.03em; color:var(--text1);">
+                {{ currentTemp !== null ? currentTemp.toFixed(1) + '°C' : '—' }}
+              </span>
+              <span style="font-size:20px; font-weight:600; font-family:var(--mono); color:var(--text2);">
+                {{ currentHumidity !== null ? currentHumidity.toFixed(0) + '%' : '—' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 날짜별 날씨 목록 -->
+        <div v-if="weatherDisplay.length" style="display:flex; flex-direction:column; gap:5px; overflow-y:auto; max-height:200px;">
+          <div v-for="row in weatherDisplay" :key="row.date"
+            style="display:flex; justify-content:space-between; align-items:center;
+                   padding:7px 10px; background:var(--bg2); border-radius:8px; font-size:12px;">
+            <span style="color:var(--text3); font-size:11px;">{{ row.date }}</span>
+            <span style="font-weight:600; color:var(--text1);">
+              {{ Number.isFinite(row.temp) ? row.temp.toFixed(1) + '°C' : '—' }}
+            </span>
+            <span style="color:var(--text3); font-size:11px;">
+              💧 {{ Number.isFinite(row.humidity) ? row.humidity.toFixed(0) + '%' : '—' }}
+            </span>
+          </div>
+        </div>
+        <p v-else style="color:var(--text3); font-size:11px;">날씨 데이터가 없습니다.</p>
       </div>
 
       <!-- 뉴스 이벤트 -->
@@ -110,13 +132,11 @@ const props = defineProps({
   selectedDate: { type: String,  default: '' },
   selectedTime: { type: String,  default: '00:00' },
   isLoading:    { type: Boolean, default: false },
+  weatherRows:  { type: Array,   default: () => [] },
 })
 
 const chartEl = ref(null)
-const barEl   = ref(null)
-let chart    = null
-let barChart = null
-const showCi = ref(true)
+let chart = null
 
 const POWER_MW_THRESHOLD_KW = 1000
 const p2 = n => String(n).padStart(2, '0')
@@ -125,7 +145,6 @@ function fmtFixed2(n) {
   return n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// 예측 테이블 시각: YYYY년 MM월 DD일 HH시
 function fmtForecastTs(ts) {
   if (!ts) return '—'
   const d = new Date(ts)
@@ -232,13 +251,46 @@ const topNews = computed(() =>
 )
 const level = s => s >= 0.7 ? 'high' : s >= 0.5 ? 'mid' : 'low'
 
-// ── 요인 중요도
-const visibleFactors = computed(() =>
-  [...(props.xaiResult?.factors ?? [])]
-    .sort((a, b) => b.importance - a.importance)
-    .slice(0, 12)
+// ── 날씨
+function getWTemp(row)  { return Number(row.temperature ?? row.temp ?? row.air_temp ?? row.ta ?? row.mean_temp ?? NaN) }
+function getWHum(row)   { return Number(row.humidity ?? row.hm ?? row.rh ?? NaN) }
+function getWPrecip(row) { return Number(row.precipitation ?? row.precip ?? row.rain ?? row.rn ?? NaN) }
+function getWDate(row)  { return String(row.date ?? row.datetime ?? row.ts ?? '').slice(0, 16) }
+
+const weatherDisplay = computed(() =>
+  props.weatherRows
+    .filter(row => getWDate(row).startsWith(props.selectedDate))
+    .map(row => ({
+      date:     getWDate(row),
+      temp:     getWTemp(row),
+      humidity: getWHum(row),
+    }))
 )
-const barHeight = computed(() => 24 + Math.max(visibleFactors.value.length, 4) * 24)
+
+const currentWeather = computed(() =>
+  props.weatherRows.find(r => getWDate(r).startsWith(props.selectedDate) && getWDate(r).includes(props.selectedTime))
+  ?? props.weatherRows.find(r => getWDate(r).startsWith(props.selectedDate))
+  ?? props.weatherRows[props.weatherRows.length - 1]
+  ?? null
+)
+
+const currentTemp     = computed(() => { const v = getWTemp(currentWeather.value ?? {}); return Number.isFinite(v) ? v : null })
+const currentHumidity = computed(() => { const v = getWHum(currentWeather.value ?? {});  return Number.isFinite(v) ? v : null })
+const currentPrecip = computed(() => {
+  const v = getWPrecip(currentWeather.value ?? {})
+  return Number.isFinite(v) ? v : null
+})
+
+
+const weatherIcon     = computed(() => {
+  const t = currentTemp.value
+  if (t === null) return '🌤️'
+  if (t >= 30) return '☀️💦'
+  if (t >= 20) return '🌤️'
+  if (t >= 10) return '⛅'
+  if (t >=  0) return '🌥️'
+  return '❄️'
+})
 
 // ── 차트 옵션
 function buildOption() {
@@ -268,22 +320,12 @@ function buildOption() {
       data: forecastPlotRows.value.map(r => [r.ts, r.pred_1_step]),
       symbol: 'none', smooth: 0.08,
       lineStyle: { color: '#11cdef', width: 2.5, type: 'dashed' },
-      areaStyle: showCi.value ? { color: new echarts.graphic.LinearGradient(0,0,0,1,[
+      areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[
         { offset:0, color:'rgba(17,205,239,0.12)' },
         { offset:1, color:'rgba(17,205,239,0.01)' },
-      ])} : undefined,
+      ])},
     },
   ]
-
-  if (showCi.value && forecastRows.value.length) {
-    series.push({
-      name: '신뢰구간', type: 'line',
-      data: forecastRows.value.map(r => [r.ts, (r.pred_1_step ?? 0) + 6]),
-      lineStyle: { opacity: 0 },
-      areaStyle: { color: 'rgba(17,205,239,0.05)', origin: 'auto' },
-      symbol: 'none', silent: true, showInLegend: false,
-    })
-  }
 
   return {
     backgroundColor: 'transparent',
@@ -347,40 +389,6 @@ function buildOption() {
   }
 }
 
-// ── 요인 중요도 차트
-async function drawBar() {
-  await nextTick()
-  if (!barEl.value || !visibleFactors.value.length) return
-  if (!barChart) barChart = echarts.init(barEl.value)
-
-  const s = [...visibleFactors.value].sort((a, b) => a.importance - b.importance)
-  const maxImp = Math.max(...s.map(f => f.importance))
-  const colors = s.map(f => {
-    const r = f.importance / maxImp
-    if (r >= 0.85) return '#5e72e4'
-    if (r >= 0.65) return '#11cdef'
-    if (r >= 0.45) return '#2dce89'
-    return '#adb5bd'
-  })
-
-  barChart.setOption({
-    backgroundColor: 'transparent',
-    grid: { left: 10, right: 20, top: 8, bottom: 8, containLabel: true },
-    xAxis: { type: 'value', max: maxImp * 1.35, axisLine:{show:false}, axisTick:{show:false}, axisLabel:{show:false}, splitLine:{show:false} },
-    yAxis: { type: 'category', data: s.map(f => f.factor), axisLine:{show:false}, axisTick:{show:false}, axisLabel:{color:'#4a5568',fontSize:11,fontFamily:'Pretendard'} },
-    tooltip: {
-      trigger: 'item', backgroundColor: '#1a1a2e', borderColor: 'transparent', borderRadius: 8, padding: [8,12],
-      textStyle: { color:'#fff', fontSize:12, fontFamily:'Pretendard' },
-      formatter: p => `<b>${p.name}</b><br><span style="color:#c0b0ff;">${Number(p.value).toLocaleString('ko-KR')}건</span>`,
-    },
-    series: [{
-      type: 'bar',
-      data: s.map((f,i) => ({ value: f.importance, itemStyle: { color: colors[i], borderRadius: [0,4,4,0] } })),
-      barMaxWidth: 12, barCategoryGap: '45%', label: { show: false },
-    }],
-  }, true)
-}
-
 async function drawChart() {
   await nextTick()
   if (!chartEl.value) return
@@ -390,28 +398,18 @@ async function drawChart() {
 
 function handleResize() {
   chart?.resize()
-  barChart?.resize()
-}
-
-async function draw() {
-  await drawChart()
-  await drawBar()
 }
 
 onMounted(() => {
-  setTimeout(draw, 100)
+  setTimeout(drawChart, 100)
   window.addEventListener('resize', handleResize)
 })
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   chart?.dispose()
-  barChart?.dispose()
 })
-watch(() => props.xaiResult, () => setTimeout(drawBar, 50), { deep: true })
-watch(() => props.newsView,  () => setTimeout(drawBar, 50))
-watch(barHeight, () => setTimeout(drawBar, 50))
 watch(
-  [() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, showCi, demandDisplayScale],
+  [() => props.series, () => props.selectedDate, () => props.selectedTime, () => props.isLoading, demandDisplayScale],
   drawChart, { deep: true }
 )
 </script>

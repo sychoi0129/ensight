@@ -119,6 +119,7 @@
           :selected-date="selectedDate"
           :selected-time="selectedTime"
           :is-loading="isLoading"
+          :weather-rows="weatherRows"
         />
         <EssTab
           v-else
