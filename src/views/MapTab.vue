@@ -19,31 +19,13 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import echarts from '@/plugins/echarts'
+import * as echarts from 'echarts'
 
 const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
 const barEl = ref(null)
 let barChart = null
-let mapInstance = null
-let deckOverlay = null
-let MaplibreCtor = null
-let MapboxOverlayCtor = null
-let ColumnLayerCtor = null
-
-// 무거운 라이브러리(deck.gl + maplibre)는 사용 시점에만 동적 로드
-async function ensureMapLibs() {
-  if (MaplibreCtor && MapboxOverlayCtor && ColumnLayerCtor) return
-  const [maplibreMod, mapboxMod, layersMod] = await Promise.all([
-    import('maplibre-gl'),
-    import('@deck.gl/mapbox'),
-    import('@deck.gl/layers'),
-    import('maplibre-gl/dist/maplibre-gl.css'),
-  ])
-  MaplibreCtor = maplibreMod.default ?? maplibreMod
-  MapboxOverlayCtor = mapboxMod.MapboxOverlay
-  ColumnLayerCtor = layersMod.ColumnLayer
-}
+let deckInstance = null
 
 // ── 색상 보간 (낮음: #8b9ef0 → 높음: #c0b0ff → 최고: #f5365c)
 function loadColor(normalized) {
@@ -58,11 +40,16 @@ function loadColor(normalized) {
 async function drawMap() {
   await nextTick()
   if (!mapEl.value || !props.mapDf.length) return
-  await ensureMapLibs()
+
+  const deck = window.deck
+  if (!deck) {
+    console.warn('deck.gl not loaded')
+    return
+  }
 
   const maxLoad = Math.max(...props.mapDf.map(r => r.avg_load), 1)
 
-  const layer = new ColumnLayerCtor({
+  const layer = new deck.ColumnLayer({
     id: 'peak-load',
     data: props.mapDf,
     diskResolution: 24,
@@ -77,33 +64,31 @@ async function drawMap() {
     lineWidthMinPixels: 1,
   })
 
-  if (mapInstance && deckOverlay) {
-    deckOverlay.setProps({ layers: [layer] })
-    return
-  }
-
-  mapInstance = new MaplibreCtor.Map({
-    container: mapEl.value,
-    style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    center: [127.8, 36.2],
-    zoom: 6.2,
-    pitch: 50,
-    bearing: 0,
-  })
-
-  deckOverlay = new MapboxOverlayCtor({
-    interleaved: true,
-    layers: [layer],
-    getTooltip: ({ object }) =>
-      object && {
-        html: `<div style="background:#1a1a2e;padding:8px 12px;border-radius:8px;font-family:Pretendard;color:#fff;font-size:12px;">
-          <b>${object.region}</b><br/>
-          <span style="color:#c0b0ff;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
-        </div>`,
-        style: { background: 'none', border: 'none', padding: 0 },
+  if (deckInstance) {
+    deckInstance.setProps({ layers: [layer] })
+  } else {
+    deckInstance = new deck.DeckGL({
+      container: mapEl.value,
+      mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      initialViewState: {
+        longitude: 127.8,
+        latitude: 36.2,
+        zoom: 6.2,
+        pitch: 30,
+        bearing: 0,
       },
-  })
-  mapInstance.addControl(deckOverlay)
+      controller: true,
+      layers: [layer],
+      getTooltip: ({ object }) =>
+        object && {
+          html: `<div style="background:#1a1a2e;padding:8px 12px;border-radius:8px;font-family:Pretendard;color:#fff;font-size:12px;">
+            <b>${object.region}</b><br/>
+            <span style="color:#c0b0ff;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
+          </div>`,
+          style: { background: 'none', border: 'none', padding: 0 },
+        },
+    })
+  }
 }
 
 // ── 바 차트 (xAxis max 동적)
@@ -175,9 +160,7 @@ async function draw() {
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => {
   barChart?.dispose()
-  mapInstance?.remove()
-  mapInstance = null
-  deckOverlay = null
+  deckInstance?.finalize()
 })
 watch(() => props.mapDf, draw, { deep: true })
 </script>

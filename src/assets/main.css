@@ -176,7 +176,7 @@ html, body {
 .main-content {
   margin-left: var(--sidebar-width);
   flex: 1;
-  min-width: 0;
+  min-width: calc(1280px - var(--sidebar-width));
   display: flex;
   flex-direction: column;
 }
@@ -384,9 +384,26 @@ html, body {
 
 /* ── row/col ── */
 .row   { display: flex; gap: 1rem; }
-.col-2 { flex: 2; min-width: 0; }
-.col-1 { flex: 1; min-width: 0; }
+.col-2 { flex: 2; min-width: 400px; }
+.col-1 { flex: 1; min-width: 260px; }
 
 /* ── 숨김 ── */
 .topbar, .ctrl-bar, .tab-bar, .tab-content,
 .status-bar, .dash-footer, hr { display: none; }
+
+/* App.vue 또는 전역 CSS */
+/* main.css */
+html, body {
+  min-width: 1280px;
+  overflow-x: auto;
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  min-width: 1280px;
+}
+
+.app-shell {
+  min-width: 1280px;
+}

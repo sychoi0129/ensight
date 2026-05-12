@@ -7,25 +7,41 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Dependencies
+node_modules/
+
+# OS files
 .DS_Store
-dist
-dist-ssr
-coverage
-*.local
+Thumbs.db
+
+# Build outputs
+dist/
+dist-ssr/
+coverage/
+backend/static/
+
+# Local env files / secrets
+.env
+.env.*
+*.env
+backend/.env
+backend/.env.*
+!*.env.example
+!.env.example
+!backend/.env.example
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
+# TypeScript / ESLint cache
 *.tsbuildinfo
-
 .eslintcache
 
 # Cypress
@@ -40,15 +56,23 @@ __screenshots__/
 
 # Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 *.py[cod]
 *$py.class
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Python virtual environments
 .venv/
 venv/
+env/
 
-# Backend secrets (never commit real credentials)
-backend/.env
-
-# Unified build artifact (frontend dist copied here at build time)
-backend/static/
-
+# Local database / temporary files
+*.sqlite3
+*.db
+tmp/
+temp/
