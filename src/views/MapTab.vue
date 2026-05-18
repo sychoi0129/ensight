@@ -25,70 +25,105 @@ const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
 const barEl = ref(null)
 let barChart = null
-let deckInstance = null
+let mapInstance = null
+let deckOverlay = null
+let MaplibreCtor = null
+let MapboxOverlayCtor = null
+let ColumnLayerCtor = null
 
-// ── 색상 보간 (낮음: #8b9ef0 → 높음: #c0b0ff → 최고: #f5365c)
+// 무거운 라이브러리(deck.gl + maplibre)는 사용 시점에만 동적 로드
+async function ensureMapLibs() {
+  if (MaplibreCtor && MapboxOverlayCtor && ColumnLayerCtor) return
+  const [maplibreMod, mapboxMod, layersMod] = await Promise.all([
+    import('maplibre-gl'),
+    import('@deck.gl/mapbox'),
+    import('@deck.gl/layers'),
+    import('maplibre-gl/dist/maplibre-gl.css'),
+  ])
+  MaplibreCtor = maplibreMod.default ?? maplibreMod
+  MapboxOverlayCtor = mapboxMod.MapboxOverlay
+  ColumnLayerCtor = layersMod.ColumnLayer
+}
+
+// ── 색상 보간: 낮음 #1a9bfc(하늘) → 중간 #a855f7(보라) → 높음 #ff3d5a(빨강)
+// power curve(^1.8)로 낮은 값 구간을 넓게 펼쳐 대비 강화
 function loadColor(normalized) {
-  const r1 = 139, g1 = 158, b1 = 240
-  const r2 = 192, g2 = 176, b2 = 255
-  const r = Math.round(r1 + (r2 - r1) * normalized)
-  const g = Math.round(g1 + (g2 - g1) * normalized)
-  const b = Math.round(b1 + (b2 - b1) * normalized)
-  return [r, g, b, 210]
+  const t = Math.pow(Math.min(Math.max(normalized, 0), 1), 1.8)
+
+  // 정지점 3개
+  const stops = [
+    [26,  155, 252, 200],   // 0.0 : #1a9bfc 하늘파랑  (낮음)
+    [168,  85, 247, 220],   // 0.5 : #a855f7 보라       (중간)
+    [255,  61,  90, 240],   // 1.0 : #ff3d5a 선명빨강   (높음)
+  ]
+
+  let r, g, b, a
+  if (t < 0.5) {
+    const s = t / 0.5
+    r = Math.round(stops[0][0] + (stops[1][0] - stops[0][0]) * s)
+    g = Math.round(stops[0][1] + (stops[1][1] - stops[0][1]) * s)
+    b = Math.round(stops[0][2] + (stops[1][2] - stops[0][2]) * s)
+    a = Math.round(stops[0][3] + (stops[1][3] - stops[0][3]) * s)
+  } else {
+    const s = (t - 0.5) / 0.5
+    r = Math.round(stops[1][0] + (stops[2][0] - stops[1][0]) * s)
+    g = Math.round(stops[1][1] + (stops[2][1] - stops[1][1]) * s)
+    b = Math.round(stops[1][2] + (stops[2][2] - stops[1][2]) * s)
+    a = Math.round(stops[1][3] + (stops[2][3] - stops[1][3]) * s)
+  }
+  return [r, g, b, a]
 }
 
 async function drawMap() {
   await nextTick()
   if (!mapEl.value || !props.mapDf.length) return
-
-  const deck = window.deck
-  if (!deck) {
-    console.warn('deck.gl not loaded')
-    return
-  }
+  await ensureMapLibs()
 
   const maxLoad = Math.max(...props.mapDf.map(r => r.avg_load), 1)
 
-  const layer = new deck.ColumnLayer({
+  const layer = new ColumnLayerCtor({
     id: 'peak-load',
     data: props.mapDf,
-    diskResolution: 24,
-    radius: 18000,
+    diskResolution: 32,
+    radius: 14000,
     extruded: true,
     pickable: true,
-    elevationScale: 80,
+    elevationScale: 60,
     getPosition: d => [d.lng, d.lat],
     getElevation: d => d.avg_load,
     getFillColor: d => loadColor(d.avg_load / maxLoad),
-    getLineColor: [255, 255, 255, 60],
+    getLineColor: [255, 255, 255, 80],
     lineWidthMinPixels: 1,
+    material: { ambient: 0.35, diffuse: 0.8, shininess: 32, specularColor: [60, 100, 255] },
   })
 
-  if (deckInstance) {
-    deckInstance.setProps({ layers: [layer] })
-  } else {
-    deckInstance = new deck.DeckGL({
-      container: mapEl.value,
-      mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      initialViewState: {
-        longitude: 127.8,
-        latitude: 36.2,
-        zoom: 6.2,
-        pitch: 30,
-        bearing: 0,
-      },
-      controller: true,
-      layers: [layer],
-      getTooltip: ({ object }) =>
-        object && {
-          html: `<div style="background:#1a1a2e;padding:8px 12px;border-radius:8px;font-family:Pretendard;color:#fff;font-size:12px;">
-            <b>${object.region}</b><br/>
-            <span style="color:#c0b0ff;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
-          </div>`,
-          style: { background: 'none', border: 'none', padding: 0 },
-        },
-    })
+  if (mapInstance && deckOverlay) {
+    deckOverlay.setProps({ layers: [layer] })
+    return
   }
+
+  mapInstance = new MaplibreCtor.Map({
+    container: mapEl.value,
+    style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+    center: [127.8, 36.2],
+    zoom: 6.2,
+    pitch: 45,
+    bearing: -10,
+  })
+
+  deckOverlay = new MapboxOverlayCtor({
+    interleaved: true,
+    layers: [layer],
+    getTooltip: ({ object }) =>
+      object && {
+        html: `<div style="background:rgba(15,20,50,0.92);padding:8px 12px;border-radius:8px;border:1px solid rgba(100,140,255,0.3);font-family:Pretendard;color:#fff;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+          <b>${object.region}</b><br/>
+          <span style="color:#a78bfa;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
+        </div>`,
+        style: { background: 'none', border: 'none', padding: 0 },
+      },
+  })
+  mapInstance.addControl(deckOverlay)
 }
 
 // ── 바 차트 (xAxis max 동적)
@@ -113,7 +148,7 @@ async function drawBar() {
         color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard',
         formatter: v => `${Math.round(v)}`,
       },
-      splitLine: { lineStyle: { color: '#2a2a3e', type: 'dashed' } },
+      splitLine: { lineStyle: { color: '#e9ecef', type: 'dashed' } },
     },
     yAxis: {
       type: 'category',
@@ -132,16 +167,20 @@ async function drawBar() {
     },
     series: [{
       type: 'bar',
-      data: sorted.map(r => ({
-        value: r.avg_load,
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-            { offset: 0, color: '#8b9ef0' },
-            { offset: 1, color: '#5865f2' },
-          ]),
-          borderRadius: [0, 4, 4, 0],
-        },
-      })),
+      data: sorted.map(r => {
+        const [rr, gg, bb] = loadColor(r.avg_load / maxVal)
+        const hex = `#${[rr,gg,bb].map(v=>v.toString(16).padStart(2,'0')).join('')}`
+        return {
+          value: r.avg_load,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              { offset: 0, color: hex + 'aa' },
+              { offset: 1, color: hex },
+            ]),
+            borderRadius: [0, 4, 4, 0],
+          },
+        }
+      }),
       barMaxWidth: 22,
       label: {
         show: true, position: 'right',
@@ -160,7 +199,9 @@ async function draw() {
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => {
   barChart?.dispose()
-  deckInstance?.finalize()
+  mapInstance?.remove()
+  mapInstance = null
+  deckOverlay = null
 })
 watch(() => props.mapDf, draw, { deep: true })
 </script>

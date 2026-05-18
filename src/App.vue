@@ -21,7 +21,11 @@
         </div>
         <div class="ctrl-group">
           <label class="form-label">날짜</label>
-          <input type="date" class="form-select" v-model="selectedDate" />
+          <input type="date" class="form-select" v-model="selectedDate"
+            :style="(HOLIDAYS.has(selectedDate) || [0,6].includes(new Date(selectedDate + 'T00:00:00').getDay())) ? {borderColor:'#f5365c'} : {}" />
+          <div v-if="holidayWarning" style="margin-top:5px; font-size:13px; color:#f5365c; line-height:1.4;">
+            ⛔ {{ holidayWarning }}
+          </div>
         </div>
         <div class="ctrl-group">
           <label class="form-label">시간</label>
@@ -134,7 +138,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import DemandTab from '@/views/DemandTab.vue'
 import EssTab from '@/views/EssTab.vue'
 import MapTab from '@/views/MapTab.vue'
@@ -149,6 +153,20 @@ import tempIcon from '@/assets/images/icons/temperature.png'
 import newsIcon from '@/assets/images/icons/news.png'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+// ── 공휴일: 선택 불가 날짜 Set (2012~2014)
+const HOLIDAYS = new Set([
+  "2012-01-01","2012-01-22","2012-01-23","2012-01-24","2012-03-01",
+  "2012-05-01","2012-05-05","2012-05-28","2012-06-06","2012-08-15",
+  "2012-09-29","2012-09-30","2012-10-01","2012-10-03","2012-10-09","2012-12-25",
+  "2013-01-01","2013-02-09","2013-02-10","2013-02-11","2013-03-01",
+  "2013-05-01","2013-05-05","2013-05-17","2013-06-06","2013-08-15",
+  "2013-09-18","2013-09-19","2013-09-20","2013-10-03","2013-10-09","2013-12-25",
+  "2014-01-01","2014-01-30","2014-01-31","2014-02-01","2014-03-01",
+  "2014-05-01","2014-05-05","2014-05-06","2014-06-06","2014-08-15",
+  "2014-09-07","2014-09-08","2014-09-09","2014-10-03","2014-10-09","2014-12-25",
+])
+const holidayWarning = ref("")
 
 const regions = ref([])
 const selectedRegionId = ref(null)
@@ -458,7 +476,7 @@ async function fetchCompare() {
   isLoading.value = true
   apiError.value = ""
   const startDate = subtractDays(selectedDate.value, 6)
-  const endDate = addDay(selectedDate.value)
+  const endDate = subtractDays(selectedDate.value, -2)  // +2일: 24시간 예측 전체 포함
   const url =
     `${API_BASE_URL}/api/compare?region_id=${selectedRegionId.value}` +
     `&start=${startDate}&end=${endDate}`
@@ -536,8 +554,25 @@ watch(selectedRegionId, async () => {
   }
 })
 
+let _revertingDate = false
 watch(selectedDate, async (newDate, oldDate) => {
-  if (!selectedRegionId.value || !newDate || newDate === oldDate) return
+  if (!newDate || newDate === oldDate) return
+  if (_revertingDate) return  // 되돌리기 중 재진입 차단
+  const isHoliday = HOLIDAYS.has(newDate)
+  const dow = new Date(newDate + 'T00:00:00').getDay()
+  const isWeekend = dow === 0 || dow === 6
+  if (isHoliday || isWeekend) {
+    const reason = isHoliday ? '공휴일' : (dow === 6 ? '토요일' : '일요일')
+    holidayWarning.value = newDate + '은 ' + reason + '로 선택할 수 없습니다.'
+    _revertingDate = true
+    selectedDate.value = oldDate || ""
+    await nextTick()
+    _revertingDate = false
+    setTimeout(() => { holidayWarning.value = "" }, 3000)
+    return
+  }
+  holidayWarning.value = ""
+  if (!selectedRegionId.value) return
   await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
 })
 </script>
