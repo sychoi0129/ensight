@@ -20,6 +20,10 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { ColumnLayer } from '@deck.gl/layers'
+import { MapboxOverlay } from '@deck.gl/mapbox'
 
 const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
@@ -79,7 +83,21 @@ async function drawMap() {
   if (!mapEl.value || !props.mapDf.length) return
   await ensureMapLibs()
 
-  const maxLoad = Math.max(...props.mapDf.map(r => r.avg_load), 1)
+  mapInstance = new maplibregl.Map({
+    container: mapEl.value,
+    style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+    center: [127.8, 36.2],
+    zoom: 6.2,
+
+    pitch: 30,
+    bearing: 0,
+    attributionControl: false,
+
+  deckOverlay = new MapboxOverlay({
+    interleaved: false,
+    layers: [layer],
+
+    getTooltip: buildTooltip,
 
   const layer = new ColumnLayerCtor({
     id: 'peak-load',

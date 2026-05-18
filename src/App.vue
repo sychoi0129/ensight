@@ -12,8 +12,8 @@
       <div class="sidebar-section-label">조회 조건</div>
       <div class="sidebar-controls">
         <div class="ctrl-group">
-          <label class="form-label">지역</label>
-          <select class="form-select" v-model.number="selectedRegionId">
+          <label class="form-label" for="filter-region">지역</label>
+          <select id="filter-region" class="form-select" v-model.number="selectedRegionId">
             <option v-for="region in regions" :key="region.region_id" :value="region.region_id">
               {{ region.region_name }}
             </option>
@@ -28,8 +28,8 @@
           </div>
         </div>
         <div class="ctrl-group">
-          <label class="form-label">시간</label>
-          <select class="form-select" v-model="selectedTime">
+          <label class="form-label" for="filter-time">시간</label>
+          <select id="filter-time" class="form-select" v-model="selectedTime">
             <option v-for="t in availableTimes" :key="t">{{ t }}</option>
           </select>
         </div>
@@ -42,7 +42,7 @@
           class="nav-item" :class="{ active: activeTab === tab.key }"
           @click="activeTab = tab.key"
         >
-          <img :src="tab.icon" :alt="tab.label" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;" />
+          <img :src="tab.icon" alt="" aria-hidden="true" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;" />
           <span>{{ tab.label }}</span>
         </button>
       </nav>
@@ -73,7 +73,7 @@
               <div class="kpi-value">{{ latestPower }}</div>
               <div class="kpi-unit">kW · 선택 시간 기준</div>
             </div>
-            <div class="kpi-icon blue"><img :src="powerIcon" alt="직전 전력" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="powerIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card warn">
@@ -83,7 +83,7 @@
               <div class="kpi-value">{{ loadPeak }}</div>
               <div class="kpi-unit">kW · 일 구간 최대값</div>
             </div>
-            <div class="kpi-icon blue"><img :src="peakIcon" alt="피크 부하" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="peakIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card info">
@@ -93,7 +93,7 @@
               <div class="kpi-value">{{ avgTemp }}°</div>
               <div class="kpi-unit">°C · 선택 구간 평균</div>
             </div>
-            <div class="kpi-icon blue"><img :src="tempIcon" alt="평균 기온" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="tempIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
         <div class="kpi-card alert">
@@ -103,7 +103,7 @@
               <div class="kpi-value">{{ newsKeywordCount }}</div>
               <div class="kpi-unit">해당 지역/날짜 키워드 카운트</div>
             </div>
-            <div class="kpi-icon blue"><img :src="newsIcon" alt="뉴스 이벤트" class="kpi-icon-img" /></div>
+            <div class="kpi-icon blue"><img :src="newsIcon" alt="" aria-hidden="true" class="kpi-icon-img" /></div>
           </div>
         </div>
       </div>
@@ -152,7 +152,20 @@ import peakIcon from '@/assets/images/icons/peak.png'
 import tempIcon from '@/assets/images/icons/temperature.png'
 import newsIcon from '@/assets/images/icons/news.png'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+// VITE_API_BASE_URL: 비워두면 같은 origin('/api') 사용 → Vite 프록시가 백엔드로 전달.
+// 호스트(또는 .../api)를 명시하면 절대경로로 호출 (배포 환경에서 다른 도메인 백엔드 쓸 때).
+function resolveApiRoot() {
+  const raw = import.meta.env.VITE_API_BASE_URL
+  if (raw == null || String(raw).trim() === "") return "/api"
+  let base = String(raw).trim().replace(/\/$/, "")
+  if (!base.endsWith("/api")) base = `${base}/api`
+  return base
+}
+
+function apiUrl(path) {
+  const p = path.startsWith("/") ? path : `/${path}`
+  return `${resolveApiRoot()}${p}`
+}
 
 // ── 공휴일: 선택 불가 날짜 Set (2012~2014)
 const HOLIDAYS = new Set([
@@ -393,7 +406,7 @@ function resolveRegionCoords(regionName) {
 
 async function fetchRegions() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/regions`)
+    const res = await fetch(apiUrl("/regions"))
     if (!res.ok) throw new Error(`regions API failed (${res.status})`)
     const data = await res.json()
     regions.value = data
@@ -405,7 +418,7 @@ async function fetchRegions() {
 }
 
 async function fetchLatestDate(regionId) {
-  const res = await fetch(`${API_BASE_URL}/api/latest-date?region_id=${regionId}`)
+  const res = await fetch(`${apiUrl("/latest-date")}?region_id=${regionId}`)
   if (!res.ok) {
     const txt = await res.text()
     throw new Error(`latest-date API failed (${res.status}): ${txt}`)
@@ -434,7 +447,7 @@ async function fetchNewsCount() {
   const startDate = subtractDays(selectedDate.value, 6)
   const endDate = addDay(selectedDate.value)
   const url =
-    `${API_BASE_URL}/api/news-count?region_id=${selectedRegionId.value}` +
+    `${apiUrl("/news-count")}?region_id=${selectedRegionId.value}` +
     `&start=${startDate}&end=${endDate}`
   try {
     const res = await fetch(url)
@@ -455,7 +468,7 @@ async function fetchWeather() {
   const startDate = subtractDays(selectedDate.value, 6)
   const endDate = addDay(selectedDate.value)
   const url =
-    `${API_BASE_URL}/api/weather?region_id=${selectedRegionId.value}` +
+    `${apiUrl("/weather")}?region_id=${selectedRegionId.value}` +
     `&start=${startDate}&end=${endDate}`
   try {
     const res = await fetch(url)
@@ -478,7 +491,7 @@ async function fetchCompare() {
   const startDate = subtractDays(selectedDate.value, 6)
   const endDate = subtractDays(selectedDate.value, -2)  // +2일: 24시간 예측 전체 포함
   const url =
-    `${API_BASE_URL}/api/compare?region_id=${selectedRegionId.value}` +
+    `${apiUrl("/compare")}?region_id=${selectedRegionId.value}` +
     `&start=${startDate}&end=${endDate}`
 
   try {
@@ -509,29 +522,34 @@ async function fetchCompare() {
 async function fetchRegionalStatus() {
   if (!regions.value.length || !selectedDate.value) return
   const endDate = addDay(selectedDate.value)
-  const requests = regions.value.map(async (region) => {
-    const url =
-      `${API_BASE_URL}/api/metrics?region_id=${region.region_id}` +
-      `&start=${selectedDate.value}&end=${endDate}`
+  const url =
+    `${apiUrl("/metrics-bulk")}?start=${selectedDate.value}&end=${endDate}`
+
+  try {
     const res = await fetch(url)
     if (!res.ok) {
       const txt = await res.text()
-      throw new Error(`metrics API failed (${res.status}): ${txt}`)
+      throw new Error(`metrics-bulk API failed (${res.status}): ${txt}`)
     }
-    const metric = await res.json()
-    const coords = resolveRegionCoords(region.region_name)
-    if (!coords) return null
-    return {
-      region: region.region_name,
-      lat: coords[0],
-      lng: coords[1],
-      avg_load: Number(metric.peak_before_ess ?? 0),
-    }
-  })
+    const rows = await res.json()
+    const metricsByRegion = new Map(
+      (Array.isArray(rows) ? rows : []).map((m) => [m.region_id, m]),
+    )
 
-  try {
-    const data = await Promise.all(requests)
-    regionalMapDf.value = data.filter((row) => row && Number.isFinite(row.avg_load))
+    regionalMapDf.value = regions.value
+      .map((region) => {
+        const metric = metricsByRegion.get(region.region_id)
+        if (!metric) return null
+        const coords = resolveRegionCoords(region.region_name)
+        if (!coords) return null
+        return {
+          region: region.region_name,
+          lat: coords[0],
+          lng: coords[1],
+          avg_load: Number(metric.peak_before_ess ?? 0),
+        }
+      })
+      .filter((row) => row && Number.isFinite(row.avg_load))
   } catch (err) {
     console.error("Failed to fetch regional status", err)
     regionalMapDf.value = []
@@ -540,16 +558,18 @@ async function fetchRegionalStatus() {
 
 onMounted(async () => {
   await fetchRegions()
-  await setLatestDateForRegion()
+  if (!selectedDate.value) await setLatestDateForRegion()
   if (selectedDate.value && selectedRegionId.value) {
     await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
   }
 })
 
-watch(selectedRegionId, async () => {
-  const prevDate = selectedDate.value
-  await setLatestDateForRegion()
-  if (selectedDate.value === prevDate && selectedDate.value) {
+watch(selectedRegionId, async (newId, oldId) => {
+  if (!newId || newId === oldId) return
+  if (!selectedDate.value) {
+    await setLatestDateForRegion()
+  }
+  if (selectedDate.value) {
     await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
   }
 })
