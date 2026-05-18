@@ -19,7 +19,11 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import echarts from '@/plugins/echarts'
+import * as echarts from 'echarts'
+import maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { ColumnLayer } from '@deck.gl/layers'
+import { MapboxOverlay } from '@deck.gl/mapbox'
 
 const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
@@ -27,23 +31,6 @@ const barEl = ref(null)
 let barChart = null
 let mapInstance = null
 let deckOverlay = null
-let MaplibreCtor = null
-let MapboxOverlayCtor = null
-let ColumnLayerCtor = null
-
-// 무거운 라이브러리(deck.gl + maplibre)는 사용 시점에만 동적 로드
-async function ensureMapLibs() {
-  if (MaplibreCtor && MapboxOverlayCtor && ColumnLayerCtor) return
-  const [maplibreMod, mapboxMod, layersMod] = await Promise.all([
-    import('maplibre-gl'),
-    import('@deck.gl/mapbox'),
-    import('@deck.gl/layers'),
-    import('maplibre-gl/dist/maplibre-gl.css'),
-  ])
-  MaplibreCtor = maplibreMod.default ?? maplibreMod
-  MapboxOverlayCtor = mapboxMod.MapboxOverlay
-  ColumnLayerCtor = layersMod.ColumnLayer
-}
 
 // ── 색상 보간: 낮음 #1a9bfc(하늘) → 중간 #a855f7(보라) → 높음 #ff3d5a(빨강)
 // power curve(^1.8)로 낮은 값 구간을 넓게 펼쳐 대비 강화
@@ -74,14 +61,9 @@ function loadColor(normalized) {
   return [r, g, b, a]
 }
 
-async function drawMap() {
-  await nextTick()
-  if (!mapEl.value || !props.mapDf.length) return
-  await ensureMapLibs()
-
+function buildLayer() {
   const maxLoad = Math.max(...props.mapDf.map(r => r.avg_load), 1)
-
-  const layer = new ColumnLayerCtor({
+  return new ColumnLayer({
     id: 'peak-load',
     data: props.mapDf,
     diskResolution: 32,
@@ -96,33 +78,48 @@ async function drawMap() {
     lineWidthMinPixels: 1,
     material: { ambient: 0.35, diffuse: 0.8, shininess: 32, specularColor: [60, 100, 255] },
   })
+}
+
+function buildTooltip({ object }) {
+  if (!object) return null
+  return {
+    html: `<div style="background:#1a1a2e;padding:8px 12px;border-radius:8px;font-family:Pretendard;color:#fff;font-size:12px;">
+      <b>${object.region}</b><br/>
+      <span style="color:#c0b0ff;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
+    </div>`,
+    style: { background: 'none', border: 'none', padding: 0 },
+  }
+}
+
+async function drawMap() {
+  await nextTick()
+  if (!mapEl.value || !props.mapDf.length) return
+
+  const layer = buildLayer()
 
   if (mapInstance && deckOverlay) {
     deckOverlay.setProps({ layers: [layer] })
     return
   }
 
-  mapInstance = new MaplibreCtor.Map({
+  mapInstance = new maplibregl.Map({
     container: mapEl.value,
     style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
     center: [127.8, 36.2],
     zoom: 6.2,
-    pitch: 45,
-    bearing: -10,
+
+    pitch: 30,
+    bearing: 0,
+    attributionControl: false,
+
+  deckOverlay = new MapboxOverlay({
+    interleaved: false,
+    layers: [layer],
+
+    getTooltip: buildTooltip,
+
   })
 
-  deckOverlay = new MapboxOverlayCtor({
-    interleaved: true,
-    layers: [layer],
-    getTooltip: ({ object }) =>
-      object && {
-        html: `<div style="background:rgba(15,20,50,0.92);padding:8px 12px;border-radius:8px;border:1px solid rgba(100,140,255,0.3);font-family:Pretendard;color:#fff;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,0.3);">
-          <b>${object.region}</b><br/>
-          <span style="color:#a78bfa;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
-        </div>`,
-        style: { background: 'none', border: 'none', padding: 0 },
-      },
-  })
   mapInstance.addControl(deckOverlay)
 }
 
@@ -195,9 +192,11 @@ async function draw() {
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => {
   barChart?.dispose()
-  mapInstance?.remove()
-  mapInstance = null
-  deckOverlay = null
+  if (mapInstance) {
+    mapInstance.remove()
+    mapInstance = null
+    deckOverlay = null
+  }
 })
 watch(() => props.mapDf, draw, { deep: true })
 </script>

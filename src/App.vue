@@ -4,8 +4,8 @@
       <div class="sidebar-logo">
         <div class="logo-mark">E</div>
         <div>
-          <div class="logo-text">ensight</div>
-          <div class="logo-sub">전력 수요 예측</div>
+          <div class="logo-text">Ensight ✦</div>
+          <div class="logo-sub">전국 전력 수요 예측 시스템</div>
         </div>
       </div>
 
@@ -119,6 +119,7 @@
           :selected-date="selectedDate"
           :selected-time="selectedTime"
           :is-loading="isLoading"
+          :weather-rows="weatherRows"
         />
         <EssTab
           v-else
@@ -540,16 +541,18 @@ async function fetchRegionalStatus() {
 
 onMounted(async () => {
   await fetchRegions()
-  await setLatestDateForRegion()
+  if (!selectedDate.value) await setLatestDateForRegion()
   if (selectedDate.value && selectedRegionId.value) {
     await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
   }
 })
 
-watch(selectedRegionId, async () => {
-  const prevDate = selectedDate.value
-  await setLatestDateForRegion()
-  if (selectedDate.value === prevDate && selectedDate.value) {
+watch(selectedRegionId, async (newId, oldId) => {
+  if (!newId || newId === oldId) return
+  if (!selectedDate.value) {
+    await setLatestDateForRegion()
+  }
+  if (selectedDate.value) {
     await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
   }
 })
