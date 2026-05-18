@@ -31,6 +31,23 @@ const barEl = ref(null)
 let barChart = null
 let mapInstance = null
 let deckOverlay = null
+let MaplibreCtor = null
+let MapboxOverlayCtor = null
+let ColumnLayerCtor = null
+
+// 무거운 라이브러리(deck.gl + maplibre)는 사용 시점에만 동적 로드
+async function ensureMapLibs() {
+  if (MaplibreCtor && MapboxOverlayCtor && ColumnLayerCtor) return
+  const [maplibreMod, mapboxMod, layersMod] = await Promise.all([
+    import('maplibre-gl'),
+    import('@deck.gl/mapbox'),
+    import('@deck.gl/layers'),
+    import('maplibre-gl/dist/maplibre-gl.css'),
+  ])
+  MaplibreCtor = maplibreMod.default ?? maplibreMod
+  MapboxOverlayCtor = mapboxMod.MapboxOverlay
+  ColumnLayerCtor = layersMod.ColumnLayer
+}
 
 // ── 색상 보간: 낮음 #1a9bfc(하늘) → 중간 #a855f7(보라) → 높음 #ff3d5a(빨강)
 // power curve(^1.8)로 낮은 값 구간을 넓게 펼쳐 대비 강화
@@ -61,46 +78,10 @@ function loadColor(normalized) {
   return [r, g, b, a]
 }
 
-function buildLayer() {
-  const maxLoad = Math.max(...props.mapDf.map(r => r.avg_load), 1)
-  return new ColumnLayer({
-    id: 'peak-load',
-    data: props.mapDf,
-    diskResolution: 32,
-    radius: 14000,
-    extruded: true,
-    pickable: true,
-    elevationScale: 60,
-    getPosition: d => [d.lng, d.lat],
-    getElevation: d => d.avg_load,
-    getFillColor: d => loadColor(d.avg_load / maxLoad),
-    getLineColor: [255, 255, 255, 80],
-    lineWidthMinPixels: 1,
-    material: { ambient: 0.35, diffuse: 0.8, shininess: 32, specularColor: [60, 100, 255] },
-  })
-}
-
-function buildTooltip({ object }) {
-  if (!object) return null
-  return {
-    html: `<div style="background:#1a1a2e;padding:8px 12px;border-radius:8px;font-family:Pretendard;color:#fff;font-size:12px;">
-      <b>${object.region}</b><br/>
-      <span style="color:#c0b0ff;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
-    </div>`,
-    style: { background: 'none', border: 'none', padding: 0 },
-  }
-}
-
 async function drawMap() {
   await nextTick()
   if (!mapEl.value || !props.mapDf.length) return
-
-  const layer = buildLayer()
-
-  if (mapInstance && deckOverlay) {
-    deckOverlay.setProps({ layers: [layer] })
-    return
-  }
+  await ensureMapLibs()
 
   mapInstance = new maplibregl.Map({
     container: mapEl.value,
@@ -118,8 +99,48 @@ async function drawMap() {
 
     getTooltip: buildTooltip,
 
+  const layer = new ColumnLayerCtor({
+    id: 'peak-load',
+    data: props.mapDf,
+    diskResolution: 32,
+    radius: 14000,
+    extruded: true,
+    pickable: true,
+    elevationScale: 60,
+    getPosition: d => [d.lng, d.lat],
+    getElevation: d => d.avg_load,
+    getFillColor: d => loadColor(d.avg_load / maxLoad),
+    getLineColor: [255, 255, 255, 80],
+    lineWidthMinPixels: 1,
+    material: { ambient: 0.35, diffuse: 0.8, shininess: 32, specularColor: [60, 100, 255] },
   })
 
+  if (mapInstance && deckOverlay) {
+    deckOverlay.setProps({ layers: [layer] })
+    return
+  }
+
+  mapInstance = new MaplibreCtor.Map({
+    container: mapEl.value,
+    style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+    center: [127.8, 36.2],
+    zoom: 6.2,
+    pitch: 45,
+    bearing: -10,
+  })
+
+  deckOverlay = new MapboxOverlayCtor({
+    interleaved: true,
+    layers: [layer],
+    getTooltip: ({ object }) =>
+      object && {
+        html: `<div style="background:rgba(15,20,50,0.92);padding:8px 12px;border-radius:8px;border:1px solid rgba(100,140,255,0.3);font-family:Pretendard;color:#fff;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+          <b>${object.region}</b><br/>
+          <span style="color:#a78bfa;">피크 부하 ${object.avg_load.toFixed(1)} kW</span>
+        </div>`,
+        style: { background: 'none', border: 'none', padding: 0 },
+      },
+  })
   mapInstance.addControl(deckOverlay)
 }
 
@@ -145,7 +166,7 @@ async function drawBar() {
         color: '#8898aa', fontSize: 10, fontFamily: 'Pretendard',
         formatter: v => `${Math.round(v)}`,
       },
-      splitLine: { lineStyle: { color: '#2a2a3e', type: 'dashed' } },
+      splitLine: { lineStyle: { color: '#e9ecef', type: 'dashed' } },
     },
     yAxis: {
       type: 'category',
@@ -164,16 +185,20 @@ async function drawBar() {
     },
     series: [{
       type: 'bar',
-      data: sorted.map(r => ({
-        value: r.avg_load,
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-            { offset: 0, color: '#8b9ef0' },
-            { offset: 1, color: '#5865f2' },
-          ]),
-          borderRadius: [0, 4, 4, 0],
-        },
-      })),
+      data: sorted.map(r => {
+        const [rr, gg, bb] = loadColor(r.avg_load / maxVal)
+        const hex = `#${[rr,gg,bb].map(v=>v.toString(16).padStart(2,'0')).join('')}`
+        return {
+          value: r.avg_load,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              { offset: 0, color: hex + 'aa' },
+              { offset: 1, color: hex },
+            ]),
+            borderRadius: [0, 4, 4, 0],
+          },
+        }
+      }),
       barMaxWidth: 22,
       label: {
         show: true, position: 'right',
@@ -192,11 +217,9 @@ async function draw() {
 onMounted(() => setTimeout(draw, 100))
 onUnmounted(() => {
   barChart?.dispose()
-  if (mapInstance) {
-    mapInstance.remove()
-    mapInstance = null
-    deckOverlay = null
-  }
+  mapInstance?.remove()
+  mapInstance = null
+  deckOverlay = null
 })
 watch(() => props.mapDf, draw, { deep: true })
 </script>

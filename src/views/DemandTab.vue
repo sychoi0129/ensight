@@ -16,9 +16,9 @@
     <!-- 하단: 예측 테이블 + 날씨 현황 + 뉴스 이벤트 -->
     <div class="row" style="gap:14px; margin-top:16px; align-items:stretch;">
 
-      <!-- 향후 12시간 예측 -->
+      <!-- 향후 24시간 예측 -->
       <div class="panel" style="flex:1; min-width:0;">
-        <div class="section-label">향후 12시간의 전력 수요량 예측</div>
+        <div class="section-label">향후 24시간의 전력 수요량 예측</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px;">
           <div class="mini-stat">
             <div class="mini-stat-label">평균</div>
@@ -90,7 +90,7 @@
           <div v-for="row in weatherDisplay" :key="row.date"
             style="display:flex; justify-content:space-between; align-items:center;
                    padding:7px 10px; background:var(--bg2); border-radius:8px; font-size:12px;">
-            <span style="color:var(--text3); font-size:11px;">{{ row.date }}</span>
+            <span style="color:var(--text3); font-size:11px;">{{ fmtWDate(row.date) }}</span>
             <span style="font-weight:600; color:var(--text1);">
               {{ Number.isFinite(row.temp) ? row.temp.toFixed(1) + '°C' : '—' }}
             </span>
@@ -175,7 +175,7 @@ const histRows = computed(() => {
 const forecastRows = computed(() => {
   if (!sortedSeries.value.length) return []
   const idx = anchorIndex.value >= 0 ? anchorIndex.value : sortedSeries.value.length - 1
-  return sortedSeries.value.slice(idx + 1, idx + 13)
+  return sortedSeries.value.slice(idx + 1, idx + 25)
 })
 
 const forecastPlotRows = computed(() => {
@@ -256,6 +256,7 @@ function getWTemp(row)  { return Number(row.temperature ?? row.temp ?? row.air_t
 function getWHum(row)   { return Number(row.humidity ?? row.hm ?? row.rh ?? NaN) }
 function getWPrecip(row) { return Number(row.precipitation ?? row.precip ?? row.rain ?? row.rn ?? NaN) }
 function getWDate(row)  { return String(row.date ?? row.datetime ?? row.ts ?? '').slice(0, 16) }
+function fmtWDate(str) { return str.replace('T', ' ') }
 
 const weatherDisplay = computed(() =>
   props.weatherRows

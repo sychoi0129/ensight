@@ -53,26 +53,5 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
-
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-*.py[cod]
-*$py.class
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Python virtual environments
-.venv/
-venv/
-env/
-
-# Local database / temporary files
-*.sqlite3
-*.db
-tmp/
-temp/

@@ -7,9 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "serve -s dist -l 4173",
-    "build:unified": "vite build --outDir backend/static --emptyOutDir",
-    "postinstall:backend": "pip install -r backend/requirements.txt"
+    "start": "serve -s dist -l 4173"
   },
   "dependencies": {
     "@deck.gl/core": "^9.3.2",
