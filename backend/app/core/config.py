@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     db_schema: str = Field(default="capstone", alias="DB_SCHEMA")
     db_sslmode: str = Field(default="require", alias="DB_SSLMODE")
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="")
 
     @property
     def database_url(self) -> str:
