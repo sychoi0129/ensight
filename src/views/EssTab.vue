@@ -272,6 +272,7 @@ function buildCompareOption(scale) {
         data: daySeries.value.map((row) => [row.ts, row.actual]),
         symbol: 'none',
         lineStyle: { color: '#5e72e4', width: 2 },
+        itemStyle: { color: '#5e72e4' },
         smooth: 0.25,
       },
       {
@@ -280,6 +281,7 @@ function buildCompareOption(scale) {
         data: daySeries.value.map((row) => [row.ts, row.pred_1_step]),
         symbol: 'none',
         lineStyle: { color: '#11cdef', width: 2, type: 'dashed' },
+        itemStyle: { color: '#11cdef' },
         smooth: 0.25,
       },
       {
@@ -288,6 +290,7 @@ function buildCompareOption(scale) {
         data: daySeries.value.map((row) => [row.ts, row.pred_24_step]),
         symbol: 'none',
         lineStyle: { color: '#fb6340', width: 2, type: 'dotted' },
+        itemStyle: { color: '#fb6340' },
         smooth: 0.25,
       },
       {
@@ -296,6 +299,7 @@ function buildCompareOption(scale) {
         data: daySeries.value.map((row) => [row.ts, row.rt_result]),
         symbol: 'none',
         lineStyle: { color: '#2dce89', width: 2 },
+        itemStyle: { color: '#2dce89' },
         smooth: 0.25,
       },
     ],
@@ -315,6 +319,7 @@ function buildOption(scale) {
     legend: {
       top: 0,
       textStyle: { color: '#8898aa', fontSize: 11, fontFamily: 'Pretendard' },
+      selected: { '전력 가격': false },
     },
     xAxis: {
       type: 'time',
@@ -405,6 +410,7 @@ function buildOption(scale) {
         data: daySeries.value.map((row) => [row.ts, row.soc]),
         symbol: 'none',
         lineStyle: { color: '#2dce89', width: 2 },
+        itemStyle: { color: '#2dce89' },
       },
       {
         name: '전력 가격',
@@ -413,6 +419,7 @@ function buildOption(scale) {
         data: daySeries.value.map((row) => [row.ts, row.price]),
         symbol: 'none',
         lineStyle: { color: '#5e72e4', width: 2, type: 'dashed' },
+        itemStyle: { color: '#5e72e4' },
       },
     ],
   }

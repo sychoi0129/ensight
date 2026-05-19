@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="row" style="gap:14px;">
-      <div class="panel" style="flex:1.2; min-width:0;">
+      <div class="panel" style="flex:1; min-width:0;">
         <div class="section-label">지역별 피크 부하 현황</div>
         <div ref="mapEl" style="width:100%; height:420px; border-radius:10px; overflow:hidden; position:relative;">
           <div v-if="!mapDf.length" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8898aa;font-size:13px;">
@@ -9,7 +9,7 @@
           </div>
         </div>
       </div>
-      <div class="panel" style="flex:1.8; min-width:0;">
+      <div class="panel" style="flex:1; min-width:0;">
         <div class="section-label">지역 랭킹</div>
         <div ref="barEl" style="width:100%; height:420px;"></div>
       </div>
@@ -20,10 +20,6 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import maplibregl from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
-import { ColumnLayer } from '@deck.gl/layers'
-import { MapboxOverlay } from '@deck.gl/mapbox'
 
 const props = defineProps({ mapDf: { type: Array, default: () => [] } })
 const mapEl = ref(null)
@@ -35,7 +31,6 @@ let MaplibreCtor = null
 let MapboxOverlayCtor = null
 let ColumnLayerCtor = null
 
-// 무거운 라이브러리(deck.gl + maplibre)는 사용 시점에만 동적 로드
 async function ensureMapLibs() {
   if (MaplibreCtor && MapboxOverlayCtor && ColumnLayerCtor) return
   const [maplibreMod, mapboxMod, layersMod] = await Promise.all([
@@ -44,21 +39,19 @@ async function ensureMapLibs() {
     import('@deck.gl/layers'),
     import('maplibre-gl/dist/maplibre-gl.css'),
   ])
-  MaplibreCtor = maplibreMod.default ?? maplibreMod
+  MaplibreCtor = maplibreMod.Map ?? maplibreMod.default?.Map ?? maplibreMod.default
   MapboxOverlayCtor = mapboxMod.MapboxOverlay
   ColumnLayerCtor = layersMod.ColumnLayer
 }
 
 // ── 색상 보간: 낮음 #1a9bfc(하늘) → 중간 #a855f7(보라) → 높음 #ff3d5a(빨강)
-// power curve(^1.8)로 낮은 값 구간을 넓게 펼쳐 대비 강화
 function loadColor(normalized) {
   const t = Math.pow(Math.min(Math.max(normalized, 0), 1), 1.8)
 
-  // 정지점 3개
   const stops = [
-    [26,  155, 252, 200],   // 0.0 : #1a9bfc 하늘파랑  (낮음)
-    [168,  85, 247, 220],   // 0.5 : #a855f7 보라       (중간)
-    [255,  61,  90, 240],   // 1.0 : #ff3d5a 선명빨강   (높음)
+    [26,  155, 252, 200],
+    [168,  85, 247, 220],
+    [255,  61,  90, 240],
   ]
 
   let r, g, b, a
@@ -83,21 +76,7 @@ async function drawMap() {
   if (!mapEl.value || !props.mapDf.length) return
   await ensureMapLibs()
 
-  mapInstance = new maplibregl.Map({
-    container: mapEl.value,
-    style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-    center: [127.8, 36.2],
-    zoom: 6.2,
-
-    pitch: 30,
-    bearing: 0,
-    attributionControl: false,
-
-  deckOverlay = new MapboxOverlay({
-    interleaved: false,
-    layers: [layer],
-
-    getTooltip: buildTooltip,
+  const maxLoad = Math.max(...props.mapDf.map(d => d.avg_load), 1)
 
   const layer = new ColumnLayerCtor({
     id: 'peak-load',
@@ -115,18 +94,20 @@ async function drawMap() {
     material: { ambient: 0.35, diffuse: 0.8, shininess: 32, specularColor: [60, 100, 255] },
   })
 
+  // 이미 맵이 있으면 레이어만 업데이트
   if (mapInstance && deckOverlay) {
     deckOverlay.setProps({ layers: [layer] })
     return
   }
 
-  mapInstance = new MaplibreCtor.Map({
+  mapInstance = new MaplibreCtor({
     container: mapEl.value,
     style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
     center: [127.8, 36.2],
     zoom: 6.2,
     pitch: 45,
     bearing: -10,
+    attributionControl: false,
   })
 
   deckOverlay = new MapboxOverlayCtor({
@@ -141,10 +122,11 @@ async function drawMap() {
         style: { background: 'none', border: 'none', padding: 0 },
       },
   })
+
   mapInstance.addControl(deckOverlay)
 }
 
-// ── 바 차트 (xAxis max 동적)
+// ── 바 차트
 async function drawBar() {
   await nextTick()
   if (!barEl.value || !props.mapDf.length) return
@@ -152,7 +134,7 @@ async function drawBar() {
 
   const sorted = [...props.mapDf].sort((a, b) => a.avg_load - b.avg_load)
   const maxVal = Math.max(...sorted.map(r => r.avg_load), 1)
-  const xMax = Math.ceil(maxVal * 1.15 / 100) * 100  // 최대값 +15% 올림
+  const xMax = Math.ceil(maxVal * 1.05 / 100) * 100
 
   barChart.setOption({
     backgroundColor: 'transparent',
