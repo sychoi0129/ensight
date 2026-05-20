@@ -123,6 +123,7 @@
           :selected-date="selectedDate"
           :selected-time="selectedTime"
           :is-loading="isLoading"
+          :xai-loading="xaiLoading"
           :weather-rows="weatherRows"
         />
         <EssTab
@@ -143,7 +144,6 @@ import { useRouter } from 'vue-router'
 import DemandTab from '@/views/DemandTab.vue'
 import EssTab from '@/views/EssTab.vue'
 import MapTab from '@/views/MapTab.vue'
-import { summarizeXai } from '@/composables/useXai'
 import { REGION_COORDS } from '@/constants/settings'
 import demandIcon from '@/assets/images/icons/demand.png'
 import mapIcon from '@/assets/images/icons/map.png'
@@ -155,6 +155,8 @@ import newsIcon from '@/assets/images/icons/news.png'
 
 const router = useRouter()
 function goToLanding() { router.push('/') }
+const xaiResult = ref({ text: '', factors: [] })
+const xaiLoading = ref(false)
 
 // VITE_API_BASE_URL: 비워두면 같은 origin('/api') 사용 → Vite 프록시가 백엔드로 전달.
 // 호스트(또는 .../api)를 명시하면 절대경로로 호출 (배포 환경에서 다른 도메인 백엔드 쓸 때).
@@ -320,12 +322,16 @@ const newsViewForDemand = computed(() => {
       countColumns.forEach((col) => {
         const countValue = Number(row[col] ?? 0)
         if (!Number.isFinite(countValue) || countValue <= 0) return
-        const keyword = col.replace(/_count$/i, '')
-        const impact = Math.max(0.3, Math.min(0.95, countValue / 10))
+        
+        const keyword = col === 'keyword_count'
+          ? (row.keyword ?? row.event_type ?? col.replace(/_count$/i, ''))
+          : col.replace(/_count$/i, '')
+        
+        const impact = Math.max(0.3, Math.min(0.95, countValue / 500))
         expanded.push({
           timestamp,
           headline: `${keyword} 관련 키워드`,
-          event_type: keyword,
+          event_type: row.event_type ?? keyword,
           summary: `해당 키워드 카운트 ${countValue}건`,
           impact_score: Number(impact.toFixed(2)),
           keyword,
@@ -370,9 +376,7 @@ const histDfForXai = computed(() =>
   }))
 )
 
-const xaiResultForDemand = computed(() =>
-  summarizeXai(histDfForXai.value, [], newsViewForDemand.value, 168)
-)
+const xaiResultForDemand = computed(() => xaiResult.value)
 
 function toDateString(value) {
   const d = new Date(value)
@@ -523,6 +527,29 @@ async function fetchCompare() {
   }
 }
 
+async function fetchReasoning() {
+  if (!selectedRegionId.value || !selectedDate.value) return
+  xaiLoading.value = true
+  try {
+    const url = `${apiUrl('/reasoning')}?region_id=${selectedRegionId.value}&issue_ts=${selectedDate.value}T${selectedTime.value}:00`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`reasoning API failed (${res.status})`)
+    const data = await res.json()
+    xaiResult.value = {
+      text: data.report ?? '',
+      factors: (data.top_features ?? []).map(f => ({
+        factor: f,
+        importance: 0.9   // 순서대로 상위 피처니까 고정값으로 표시
+      }))
+    }
+  } catch (err) {
+    console.error('reasoning fetch failed', err)
+    xaiResult.value = { text: '분석 결과를 불러오지 못했습니다.', factors: [] }
+  } finally {
+    xaiLoading.value = false
+  }
+}
+
 async function fetchRegionalStatus() {
   if (!regions.value.length || !selectedDate.value) return
   const endDate = addDay(selectedDate.value)
@@ -564,7 +591,7 @@ onMounted(async () => {
   await fetchRegions()
   if (!selectedDate.value) await setLatestDateForRegion()
   if (selectedDate.value && selectedRegionId.value) {
-    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
+    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus(), fetchReasoning()])
   }
 })
 
@@ -574,7 +601,7 @@ watch(selectedRegionId, async (newId, oldId) => {
     await setLatestDateForRegion()
   }
   if (selectedDate.value) {
-    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
+    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus(), fetchReasoning()])
   }
 })
 
@@ -597,6 +624,6 @@ watch(selectedDate, async (newDate, oldDate) => {
   }
   holidayWarning.value = ""
   if (!selectedRegionId.value) return
-  await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus()])
+  await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus(), fetchReasoning()])
 })
 </script>

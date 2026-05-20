@@ -2,22 +2,38 @@
   <div>
     <!-- 상단: 차트(좌) + AI분석설명(우) -->
     <div class="row" style="gap:14px; align-items:stretch;">
-      <div class="col-2 panel" style="display:flex; flex-direction:column;">
+
+      <!-- 차트 패널 -->
+      <div class="col-2 panel" style="display:flex; flex-direction:column; position:relative;">
+        <div v-if="props.isLoading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <span class="loading-label">데이터 로딩 중...</span>
+        </div>
         <div class="section-label">과거 7일의 전력 소모량</div>
         <div ref="chartEl" style="width:100%; flex:1; min-height:340px;"></div>
       </div>
 
-      <div class="col-1 panel" style="display:flex; flex-direction:column;">
+      <!-- AI 분석 설명 패널 -->
+      <div class="col-1 panel" style="display:flex; flex-direction:column; position:relative;">
+        <div v-if="props.xaiLoading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <span class="loading-label">AI 분석 생성 중...</span>
+        </div>
         <div class="section-label">AI 분석 설명</div>
         <div class="xai-text-box" v-html="formattedText" style="flex:1; overflow-y:auto;"></div>
       </div>
+
     </div>
 
     <!-- 하단: 예측 테이블 + 날씨 현황 + 뉴스 이벤트 -->
     <div class="row" style="gap:14px; margin-top:16px; align-items:stretch;">
 
       <!-- 향후 24시간 예측 -->
-      <div class="panel" style="flex:1; min-width:0;">
+      <div class="panel" style="flex:1; min-width:0; position:relative;">
+        <div v-if="props.isLoading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <span class="loading-label">예측 데이터 로딩 중...</span>
+        </div>
         <div class="section-label">향후 24시간의 전력 수요량 예측</div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px;">
           <div class="mini-stat">
@@ -66,7 +82,11 @@
       </div>
 
       <!-- 날씨 현황 -->
-      <div class="panel" style="flex:1; min-width:0;">
+      <div class="panel" style="flex:1; min-width:0; position:relative;">
+        <div v-if="props.isLoading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <span class="loading-label">날씨 데이터 로딩 중...</span>
+        </div>
         <div class="section-label">날씨 현황</div>
 
         <!-- 현재 기온/습도 -->
@@ -103,7 +123,11 @@
       </div>
 
       <!-- 뉴스 이벤트 -->
-      <div class="panel" style="flex:1; min-width:0;">
+      <div class="panel" style="flex:1; min-width:0; position:relative;">
+        <div v-if="props.isLoading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <span class="loading-label">뉴스 데이터 로딩 중...</span>
+        </div>
         <div class="section-label">뉴스 이벤트 (상위 3건)</div>
         <p v-if="!newsView.length" style="color:var(--text3); font-size:11px;">
           선택 기간에 해당하는 뉴스 이벤트가 없습니다.
@@ -132,6 +156,7 @@ const props = defineProps({
   selectedDate: { type: String,  default: '' },
   selectedTime: { type: String,  default: '00:00' },
   isLoading:    { type: Boolean, default: false },
+  xaiLoading:   { type: Boolean, default: false },
   weatherRows:  { type: Array,   default: () => [] },
 })
 
@@ -282,8 +307,7 @@ const currentPrecip = computed(() => {
   return Number.isFinite(v) ? v : null
 })
 
-
-const weatherIcon     = computed(() => {
+const weatherIcon = computed(() => {
   const t = currentTemp.value
   if (t === null) return '🌤️'
   if (t >= 30) return '☀️💦'
@@ -416,6 +440,42 @@ watch(
 </script>
 
 <style scoped>
+/* ── 로딩 오버레이 */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  z-index: 10;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e9ecef;
+  border-top-color: #5e72e4;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-label {
+  font-size: 12px;
+  color: #8898aa;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 기존 스타일 */
 .xai-text-box {
   font-size: 12px;
   line-height: 1.75;

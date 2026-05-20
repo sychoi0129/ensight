@@ -182,7 +182,7 @@
       </div>
       <div class="lp-footer-links">
         <button @click="goToDashboard">대시보드</button>
-        <a href="https://github.com" target="_blank">GitHub</a>
+        <a href="https://github.com/sychoi0129/ensight" target="_blank">GitHub</a>
         <a href="#">팀 소개</a>
       </div>
     </footer>

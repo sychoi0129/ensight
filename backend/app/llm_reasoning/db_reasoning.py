@@ -1,5 +1,4 @@
 """FastAPI ↔ TSFMReasoner 연결 브릿지."""
-
 import os
 import sys
 from pathlib import Path
@@ -79,6 +78,7 @@ def build_reasoning_from_db(
         "region_id": region_id,
         "report": first["report"],
         "metrics": first["metrics"],
+        "top_features": first["metrics"].get("rrac_features", []),
     }
 
     if include_eval:
