@@ -93,13 +93,13 @@
         <div style="display:flex; align-items:center; gap:14px; padding:12px 14px; background:var(--bg2); border-radius:10px; margin-bottom:12px;">
           <span style="font-size:36px; line-height:1;">{{ weatherIcon }}</span>
           <div style="flex:1;">
-            <div style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin-bottom:4px;">현재 기온</div>
-            <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <div style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin-bottom:4px;">현재 날씨</div>
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
               <span style="font-size:26px; font-weight:700; font-family:var(--mono); letter-spacing:-0.03em; color:var(--text1);">
                 {{ currentTemp !== null ? currentTemp.toFixed(1) + '°C' : '—' }}
               </span>
               <span style="font-size:20px; font-weight:600; font-family:var(--mono); color:var(--text2);">
-                {{ currentHumidity !== null ? currentHumidity.toFixed(0) + '%' : '—' }}
+                💧 {{ currentHumidity !== null ? currentHumidity.toFixed(0) + '%' : '—' }}
               </span>
             </div>
           </div>
@@ -278,7 +278,7 @@ const level = s => s >= 0.7 ? 'high' : s >= 0.5 ? 'mid' : 'low'
 
 // ── 날씨
 function getWTemp(row)  { return Number(row.temperature ?? row.temp ?? row.air_temp ?? row.ta ?? row.mean_temp ?? NaN) }
-function getWHum(row)   { return Number(row.humidity ?? row.hm ?? row.rh ?? NaN) }
+function getWHum(row)   { return Number(row.rhum ?? row.humidity ?? row.hm ?? row.rh ?? NaN) }
 function getWPrecip(row) { return Number(row.precipitation ?? row.precip ?? row.rain ?? row.rn ?? NaN) }
 function getWDate(row)  { return String(row.date ?? row.datetime ?? row.ts ?? '').slice(0, 16) }
 function fmtWDate(str) { return str.replace('T', ' ') }
