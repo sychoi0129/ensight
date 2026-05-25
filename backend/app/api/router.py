@@ -5,6 +5,7 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.health import router as health_router
 from app.api.routes.metrics import router as metrics_router
 from app.api.routes.news import router as news_router
+from app.api.routes.news_events import router as news_events_router
 from app.api.routes.power import router as power_router
 from app.api.routes.regions import router as regions_router
 from app.api.routes.rt_schedule import router as rt_schedule_router
@@ -21,4 +22,5 @@ api_router.include_router(power_router, tags=["power"])
 api_router.include_router(compare_router, tags=["compare"])
 api_router.include_router(weather_router, tags=["weather"])
 api_router.include_router(news_router, tags=["news"])
+api_router.include_router(news_events_router, tags=["news"])
 api_router.include_router(reasoning_router, tags=["reasoning"])

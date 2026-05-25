@@ -4,14 +4,17 @@ import os
 import re
 import numpy as np
 from openai import OpenAI
-import api_key
 from tsfm_evaluator import TSFMEvaluator
 
 class TSFMReasoner:
     def __init__(self, data_dir, api_key_value=None, schema_path="reasoner_schema.json"):
         self.data_dir = data_dir
         if api_key_value is None:
-            api_key_value = api_key.open_api_key
+            api_key_value = os.getenv("OPENAI_API_KEY")
+        if not api_key_value:
+            raise ValueError(
+                "OPENAI_API_KEY가 필요합니다. backend/.env 또는 api_key_value 인자를 설정하세요."
+            )
         self.client = OpenAI(api_key=api_key_value)
         self.evaluator = TSFMEvaluator(client=self.client)
         
@@ -370,31 +373,30 @@ class TSFMReasoner:
         )
         return response.choices[0].message.content
 
-    def reason_by_date(self, date_str, num_samples=3):
+    def reason_by_date(self, date_str, num_samples=3, include_eval=False):
         data_context, news_context, feature_weights, window_indices = self.get_context_for_date(date_str)
         if not data_context:
-            return {"error": f"{date_str}에 해당하는 데이터를 찾을 수 없습니다."}
+            return {"error": f"{date_str}에 해당하는 샘플 데이터를 찾을 수 없습니다."}
 
         sections = []
         for i in range(num_samples):
-            # 1. 추론 리포트 생성 (Reasoning)
             report = self.generate_report(date_str, data_context, news_context)
-            
-            # 2. 알고리즘 기반 지표 계산 (Deterministic Verification)
-            algo_metrics = self.calculate_algorithmic_metrics(data_context, news_context, report, window_indices, feature_weights)
-            
-            # 3. LLM 평가 수행 (Judgement)
-            evaluation = self.evaluator.evaluate(data_context, news_context, report, algo_metrics)
-            
-            # 4. 결과 저장
+            algo_metrics = self.calculate_algorithmic_metrics(
+                data_context, news_context, report, window_indices, feature_weights
+            )
+            evaluation = None
+            if include_eval:
+                evaluation = self.evaluator.evaluate(
+                    data_context, news_context, report, algo_metrics
+                )
             sections.append({
                 f"reasoning{i+1}": {
                     "report": report,
                     "metrics": algo_metrics,
-                    "evaluation": evaluation
+                    "evaluation": evaluation,
                 }
             })
-            
+
         return sections
 
 if __name__ == "__main__":

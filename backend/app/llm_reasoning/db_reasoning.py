@@ -1,87 +1,132 @@
-"""FastAPI ↔ TSFMReasoner 연결 브릿지."""
-import os
-import sys
-from pathlib import Path
-
-# xai/ 폴더를 import 경로에 추가
-_XAI_DIR = Path(__file__).resolve().parents[2] / "xai"
-print(f"[DEBUG] XAI_DIR = {_XAI_DIR}")
-print(f"[DEBUG] exists = {_XAI_DIR.exists()}")
-if str(_XAI_DIR) not in sys.path:
-    sys.path.insert(0, str(_XAI_DIR))
-
-from tsfm_reasoner import TSFMReasoner  # noqa: E402
-
-# 서버 시작 시 1회만 초기화
-_reasoner: TSFMReasoner | None = None
-
-
-def _get_reasoner() -> TSFMReasoner:
-    global _reasoner
-    if _reasoner is None:
-        data_dir = _XAI_DIR / "data"
-        schema_path = _XAI_DIR / "reasoner_schema.json"
-        api_key_value = os.getenv("OPENAI_API_KEY")
-
-        if not api_key_value:
-            raise RuntimeError(
-                "OPENAI_API_KEY 환경변수가 설정되지 않았습니다. "
-                ".env 파일 또는 시스템 환경변수를 확인하세요."
-            )
-
-        _reasoner = TSFMReasoner(
-            data_dir=str(data_dir),
-            api_key_value=api_key_value,
-            schema_path=str(schema_path),
-        )
-    return _reasoner
-
-
-def build_reasoning_from_db(
-    region_id: int,
-    issue_ts: str,
-    include_eval: bool = False,
-) -> dict:
-    """
-    reasoning.py 엔드포인트에서 호출하는 메인 함수.
-
-    Parameters
-    ----------
-    region_id  : regions.region_id (현재는 load_26 고정, 추후 확장 가능)
-    issue_ts   : ISO 로컬 시각, 예) "2014-01-16T00:00:00"
-    include_eval: True면 LLM 2차 평가 포함 (응답 느려짐)
-
-    Returns
-    -------
-    {
-      "date": "2014-01-16",
-      "region_id": 26,
-      "report": "...",
-      "metrics": { ... },
-      "evaluation": "..."   # include_eval=True 일 때만 포함
-    }
-    """
-    # issue_ts에서 날짜만 추출 ("2014-01-16T14:00:00" → "2014-01-16")
-    date_str = issue_ts[:10]
-
-    reasoner = _get_reasoner()
-    results = reasoner.reason_by_date(date_str, num_samples=1)
-
-    if isinstance(results, dict) and "error" in results:
-        raise ValueError(results["error"])
-
-    # num_samples=1 이므로 첫 번째 결과만 사용
-    first = results[0]["reasoning1"]
-
-    response = {
-        "date": date_str,
-        "region_id": region_id,
-        "report": first["report"],
-        "metrics": first["metrics"],
-        "top_features": first["metrics"].get("rrac_features", []),
-    }
-
-    if include_eval:
-        response["evaluation"] = first["evaluation"]
-
-    return response
+"""
+Ensight DB(rt_schedule, weather_hourly, news_count_daily) + LLM reasoning.
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+from openai import OpenAI
+
+from app.llm_reasoning.context_from_db import build_contexts_from_db
+from app.llm_reasoning.llm_client import (
+    format_llm_error,
+    generate_report,
+    llm_configured,
+    llm_unconfigured_message,
+    resolve_llm_provider,
+)
+from app.llm_reasoning.metrics import calculate_algorithmic_metrics
+
+_SCHEMA_PATH = Path(__file__).resolve().parent / "reasoner_schema.json"
+_schema_cache: dict[str, Any] | None = None
+
+
+def _load_schema() -> dict[str, Any]:
+    global _schema_cache
+    if _schema_cache is None:
+        with open(_SCHEMA_PATH, encoding="utf-8") as f:
+            _schema_cache = json.load(f)
+    return _schema_cache
+
+
+def _maybe_evaluate(
+    data_context: str,
+    news_context: str,
+    report: str,
+    algo_metrics: dict[str, Any],
+    client: OpenAI,
+) -> str | None:
+    if os.getenv("ENSIGHT_REASONING_EVAL", "").lower() not in ("1", "true", "yes"):
+        return None
+    if resolve_llm_provider() != "openai":
+        return None
+    try:
+        from app.llm_reasoning.tsfm_evaluator import TSFMEvaluator
+    except ImportError:
+        import sys
+
+        xai_dir = Path(__file__).resolve().parents[2] / "xai"
+        if str(xai_dir) not in sys.path:
+            sys.path.insert(0, str(xai_dir))
+        from tsfm_evaluator import TSFMEvaluator  # noqa: E402
+
+    return TSFMEvaluator(client=client).evaluate(
+        data_context, news_context, report, algo_metrics
+    )
+
+
+def build_reasoning_from_db(
+    region_id: int,
+    issue_ts: str,
+    include_eval: bool = False,
+) -> dict[str, Any]:
+    date_str = (issue_ts or "")[:10]
+    base: dict[str, Any] = {
+        "date": date_str,
+        "region_id": region_id,
+        "issue_ts": issue_ts,
+        "top_features": [],
+        "metrics": None,
+        "evaluation": None,
+        "llm_provider": resolve_llm_provider(),
+    }
+
+    if not llm_configured():
+        return {
+            **base,
+            "source": "unconfigured",
+            "report": "",
+            "error": llm_unconfigured_message(),
+        }
+
+    ctx = build_contexts_from_db(region_id, issue_ts)
+    if ctx.get("error"):
+        return {**base, "source": "no_data", "report": "", "error": ctx["error"]}
+
+    data_context = ctx["data_context"]
+    news_context = ctx["news_context"]
+    feature_weights = ctx["feature_weights"]
+    news_totals = ctx.get("news_totals") or {}
+
+    try:
+        schema = _load_schema()
+        report, provider_used = generate_report(
+            schema, date_str, data_context, news_context
+        )
+        algo_metrics = calculate_algorithmic_metrics(
+            data_context,
+            news_context,
+            report,
+            feature_weights,
+            valid_extra_vocab=set(news_totals.keys()),
+        )
+        evaluation = None
+        if include_eval and provider_used == "openai":
+            from app.core.config import settings
+
+            client = OpenAI(api_key=(settings.openai_api_key or "").strip())
+            evaluation = _maybe_evaluate(
+                data_context, news_context, report, algo_metrics, client
+            )
+
+        return {
+            **base,
+            "source": "llm_db",
+            "llm_provider": provider_used,
+            "report": report,
+            "error": None,
+            "metrics": algo_metrics,
+            "top_features": algo_metrics.get("rrac_features") or [],
+            "evaluation": evaluation,
+        }
+    except Exception as exc:
+        return {
+            **base,
+            "source": "error",
+            "report": "",
+            "error": format_llm_error(exc),
+        }
+

@@ -1,7 +1,12 @@
 import json
+from pathlib import Path
 
-from pydantic import Field, field_validator
+from dotenv import load_dotenv
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_backend_root = Path(__file__).resolve().parents[2]
+load_dotenv(_backend_root / ".env")
 
 
 class Settings(BaseSettings):
@@ -27,7 +32,32 @@ class Settings(BaseSettings):
     db_schema: str = Field(default="capstone", alias="DB_SCHEMA")
     db_sslmode: str = Field(default="require", alias="DB_SSLMODE")
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", env_prefix="")
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key"),
+    )
+    gemini_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEMINI_API_KEY", "gemini_api_key"),
+    )
+    gemini_model: str = Field(
+        default="gemini-2.0-flash",
+        validation_alias=AliasChoices("GEMINI_MODEL", "gemini_model"),
+    )
+    llm_provider: str = Field(
+        default="openai",
+        validation_alias=AliasChoices("LLM_PROVIDER", "llm_provider"),
+    )
+    xai_sample_data_dir: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("XAI_SAMPLE_DATA_DIR", "xai_sample_data_dir"),
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     @property
     def database_url(self) -> str:

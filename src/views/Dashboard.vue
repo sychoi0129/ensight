@@ -196,6 +196,7 @@ const activeTab = ref("demand")
 const compareSeries = ref([])
 const compareMetrics = ref({})
 const newsRows = ref([])
+const newsEventsFromXai = ref([])
 const weatherRows = ref([])
 const regionalMapDf = ref([])
 const apiError = ref("")
@@ -305,6 +306,14 @@ const newsKeywordCount = computed(() => {
 })
 
 const newsViewForDemand = computed(() => {
+  if (newsEventsFromXai.value.length) {
+    return newsEventsFromXai.value.map((row) => ({
+      ...row,
+      timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+      impact_score: Number(row.impact_score ?? 0),
+    }))
+  }
+
   if (!newsRows.value.length) return []
   const targetRows = selectNewsRowsByDate(newsRows.value, selectedDate.value)
   const expanded = []
@@ -450,6 +459,28 @@ async function setLatestDateForRegion() {
   }
 }
 
+async function fetchNewsEvents() {
+  if (!selectedRegionId.value || !selectedDate.value) {
+    newsEventsFromXai.value = []
+    return
+  }
+  const url =
+    `${apiUrl("/news-events")}?region_id=${selectedRegionId.value}` +
+    `&date=${selectedDate.value}`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) {
+      newsEventsFromXai.value = []
+      return
+    }
+    const data = await res.json()
+    newsEventsFromXai.value = Array.isArray(data?.events) ? data.events : []
+  } catch (err) {
+    console.error("Failed to fetch news-events", err)
+    newsEventsFromXai.value = []
+  }
+}
+
 async function fetchNewsCount() {
   if (!selectedRegionId.value || !selectedDate.value) return
   const startDate = subtractDays(selectedDate.value, 6)
@@ -533,18 +564,40 @@ async function fetchReasoning() {
   try {
     const url = `${apiUrl('/reasoning')}?region_id=${selectedRegionId.value}&issue_ts=${selectedDate.value}T${selectedTime.value}:00`
     const res = await fetch(url)
-    if (!res.ok) throw new Error(`reasoning API failed (${res.status})`)
+    if (!res.ok) {
+      let detail = `reasoning API failed (${res.status})`
+      try {
+        const body = await res.json()
+        if (body?.detail) detail = String(body.detail)
+      } catch {
+        const txt = await res.text()
+        if (txt) detail = txt.slice(0, 500)
+      }
+      throw new Error(detail)
+    }
     const data = await res.json()
-    xaiResult.value = {
-      text: data.report ?? '',
-      factors: (data.top_features ?? []).map(f => ({
-        factor: f,
-        importance: 0.9   // 순서대로 상위 피처니까 고정값으로 표시
-      }))
+    const report = String(data.report ?? '').trim()
+    const errMsg = data.error ? String(data.error) : ''
+    if (!report && errMsg) {
+      xaiResult.value = {
+        text: errMsg,
+        factors: [],
+      }
+    } else {
+      xaiResult.value = {
+        text: report || '분석 리포트가 비어 있습니다.',
+        factors: (data.top_features ?? []).map(f => ({
+          factor: f,
+          importance: 0.9,
+        })),
+      }
     }
   } catch (err) {
     console.error('reasoning fetch failed', err)
-    xaiResult.value = { text: '분석 결과를 불러오지 못했습니다.', factors: [] }
+    xaiResult.value = {
+      text: '분석 결과를 불러오지 못했습니다. 백엔드(8000) 실행 및 backend/.env의 OPENAI_API_KEY를 확인하세요.',
+      factors: [],
+    }
   } finally {
     xaiLoading.value = false
   }
@@ -591,7 +644,14 @@ onMounted(async () => {
   await fetchRegions()
   if (!selectedDate.value) await setLatestDateForRegion()
   if (selectedDate.value && selectedRegionId.value) {
-    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus(), fetchReasoning()])
+    await Promise.all([
+      fetchCompare(),
+      fetchNewsCount(),
+      fetchNewsEvents(),
+      fetchWeather(),
+      fetchRegionalStatus(),
+      fetchReasoning(),
+    ])
   }
 })
 
@@ -601,7 +661,14 @@ watch(selectedRegionId, async (newId, oldId) => {
     await setLatestDateForRegion()
   }
   if (selectedDate.value) {
-    await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus(), fetchReasoning()])
+    await Promise.all([
+      fetchCompare(),
+      fetchNewsCount(),
+      fetchNewsEvents(),
+      fetchWeather(),
+      fetchRegionalStatus(),
+      fetchReasoning(),
+    ])
   }
 })
 
@@ -624,6 +691,13 @@ watch(selectedDate, async (newDate, oldDate) => {
   }
   holidayWarning.value = ""
   if (!selectedRegionId.value) return
-  await Promise.all([fetchCompare(), fetchNewsCount(), fetchWeather(), fetchRegionalStatus(), fetchReasoning()])
+  await Promise.all([
+    fetchCompare(),
+    fetchNewsCount(),
+    fetchNewsEvents(),
+    fetchWeather(),
+    fetchRegionalStatus(),
+    fetchReasoning(),
+  ])
 })
 </script>
