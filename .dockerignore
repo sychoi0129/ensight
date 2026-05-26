@@ -2,9 +2,14 @@ node_modules
 dist
 backend/static
 backend/.env
+backend/__pycache__
 .env
 .env.local
 .git
+models
+RT_scheduling_result
+capstone
+LLM_reasoning
 .gitignore
 .vscode
 .idea

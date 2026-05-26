@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1.7
+#
+# CloudType 통합 배포: Vue 빌드 → backend/static, FastAPI가 /api + SPA 동시 서빙
+# CloudType 환경변수: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SCHEMA, DB_SSLMODE
+#                     OPENAI_API_KEY (또는 LLM_PROVIDER=gemini + GEMINI_API_KEY)
+# PORT 는 CloudType이 자동 주입 (직접 설정하지 않음)
 
 ############################
 # 1) Frontend build (Vue)
@@ -14,7 +19,10 @@ COPY public ./public
 COPY src ./src
 COPY scripts ./scripts
 
-RUN npm run build:unified
+# 같은 origin에서 /api 호출 (분리 배포가 아니면 VITE_API_BASE_URL 비움)
+ENV VITE_API_BASE_URL=
+RUN mkdir -p backend/static \
+    && npm run build:unified
 
 
 ############################

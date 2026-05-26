@@ -253,19 +253,16 @@ function formatDemandValue(value) {
 
 // ── AI 분석 텍스트 포맷
 const formattedText = computed(() => {
-  if (!props.xaiResult?.text) return '<div style="color:var(--text3);font-size:12px;">분석 결과가 없습니다.</div>'
+  if (!props.xaiResult?.text) {
+    return '<div class="xai-paragraph xai-empty">분석 결과가 없습니다.</div>'
+  }
   return props.xaiResult.text
     .split('\n')
     .map(line => {
       const t = line.trim()
-      if (!t) return '<div style="height:8px;"></div>'
-      if (t.startsWith('- '))
-        return `<div class="xai-bullet">· ${t.slice(2)}</div>`
-      if (/^\d+\./.test(t))
-        return `<div class="xai-section-title">${t.replace(/^\d+\.\s*/, '')}</div>`
-      if (t.startsWith('['))
-        return `<div class="xai-tag-title">${t}</div>`
-      return `<div class="xai-line">${t}</div>`
+      if (!t) return '<div class="xai-spacer"></div>'
+      if (t.startsWith('- ')) return `<div class="xai-paragraph">· ${t.slice(2)}</div>`
+      return `<div class="xai-paragraph">${t}</div>`
     })
     .join('')
 })
@@ -475,35 +472,26 @@ watch(
   to { transform: rotate(360deg); }
 }
 
-/* ── 기존 스타일 */
+/* ── AI 분석 설명 */
 .xai-text-box {
-  font-size: 12px;
-  line-height: 1.75;
-  color: var(--text2);
   font-family: 'Pretendard', sans-serif;
 }
-:deep(.xai-line) {
-  margin: 2px 0;
-  color: var(--text2);
-}
-:deep(.xai-bullet) {
-  padding-left: 14px;
-  margin: 4px 0;
-  color: var(--text2);
-  position: relative;
-}
-:deep(.xai-section-title) {
-  margin: 10px 0 4px;
-  font-weight: 700;
+.xai-text-box :deep(.xai-paragraph) {
+  margin: 0 0 10px;
   font-size: 13px;
-  color: var(--text1);
-  border-left: 3px solid #5865f2;
-  padding-left: 8px;
-}
-:deep(.xai-tag-title) {
+  line-height: 1.75;
   font-weight: 700;
-  font-size: 13px;
   color: #5865f2;
-  margin-bottom: 6px;
+}
+.xai-text-box :deep(.xai-paragraph:last-child) {
+  margin-bottom: 0;
+}
+.xai-text-box :deep(.xai-empty) {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text3);
+}
+.xai-text-box :deep(.xai-spacer) {
+  height: 8px;
 }
 </style>
