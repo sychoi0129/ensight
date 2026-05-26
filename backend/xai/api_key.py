@@ -1,1 +1,1 @@
-open_api_key="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"
+open_api_key=""
