@@ -2,7 +2,7 @@
   <div>
     <div class="row" style="gap:14px;">
       <div class="panel" style="flex:1; min-width:0;">
-        <div class="section-label">지역별 피크 부하 현황</div>
+        <div class="section-label">지역별 전력 사용량</div>
         <div ref="mapEl" style="width:100%; height:420px; border-radius:10px; overflow:hidden; position:relative;">
           <div v-if="!mapDf.length" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8898aa;font-size:13px;">
             데이터 없음

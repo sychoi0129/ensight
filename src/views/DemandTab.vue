@@ -9,8 +9,8 @@
           <div class="loading-spinner"></div>
           <span class="loading-label">데이터 로딩 중...</span>
         </div>
-        <div class="section-label">과거 7일의 전력 소모량</div>
-        <div ref="chartEl" style="width:100%; flex:1; min-height:340px;"></div>
+        <div class="section-label">과거 7일의 전력 소모량과 예측 수요</div>
+        <div ref="chartEl" style="width:100%; flex:1; min-height:300px;"></div>
       </div>
 
       <!-- AI 분석 설명 패널 -->
@@ -20,7 +20,7 @@
           <span class="loading-label">AI 분석 생성 중...</span>
         </div>
         <div class="section-label">AI 분석 설명</div>
-        <div class="xai-text-box" v-html="formattedText" style="flex:1; overflow-y:auto;"></div>
+        <div class="xai-text-box" v-html="formattedText" style="overflow-y:auto; max-height:320px;"></div>
       </div>
 
     </div>
@@ -94,12 +94,13 @@
           <span style="font-size:36px; line-height:1;">{{ weatherIcon }}</span>
           <div style="flex:1;">
             <div style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin-bottom:4px;">현재 날씨</div>
-            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
               <span style="font-size:26px; font-weight:700; font-family:var(--mono); letter-spacing:-0.03em; color:var(--text1);">
                 {{ currentTemp !== null ? currentTemp.toFixed(1) + '°C' : '—' }}
               </span>
-              <span style="font-size:20px; font-weight:600; font-family:var(--mono); color:var(--text2);">
-                💧 {{ currentHumidity !== null ? currentHumidity.toFixed(0) + '%' : '—' }}
+              <span style="font-size:20px; font-weight:600; font-family:var(--sans); color:var(--text2); padding-right:12px; display:flex; align-items:center; gap:6px;">
+                <span>💧</span>
+                <span>{{ currentHumidity !== null ? currentHumidity.toFixed(0) + '%' : '—' }}</span>
               </span>
             </div>
           </div>
@@ -128,9 +129,9 @@
           <div class="loading-spinner"></div>
           <span class="loading-label">뉴스 데이터 로딩 중...</span>
         </div>
-        <div class="section-label">뉴스 이벤트 (상위 3건)</div>
+        <div class="section-label">주요 뉴스 키워드</div>
         <p v-if="!newsView.length" style="color:var(--text3); font-size:11px;">
-          선택 기간에 해당하는 뉴스 이벤트가 없습니다.
+          선택 기간에 해당하는 뉴스 키워드가 없습니다.
         </p>
         <div v-for="row in topNews" :key="String(row.timestamp)"
           class="news-card" :class="level(row.impact_score)">
@@ -261,8 +262,18 @@ const formattedText = computed(() => {
     .map(line => {
       const t = line.trim()
       if (!t) return '<div class="xai-spacer"></div>'
-      if (t.startsWith('- ')) return `<div class="xai-paragraph">· ${t.slice(2)}</div>`
-      return `<div class="xai-paragraph">${t}</div>`
+      // [예측 결과] 태그 → 강조 헤더
+      const tagMatch = t.match(/^(\[[^\]]+\])[:：]?\s*(.*)$/)
+      if (tagMatch) {
+        const tag  = tagMatch[1]
+        const body = tagMatch[2]
+        return `<div class="xai-paragraph">
+          <span class="xai-tag">${tag}</span>
+          ${body ? `<span class="xai-body">${body}</span>` : ''}
+        </div>`
+      }
+      if (t.startsWith('- ')) return `<div class="xai-paragraph xai-body">· ${t.slice(2)}</div>`
+      return `<div class="xai-paragraph xai-body">${t}</div>`
     })
     .join('')
 })
@@ -473,25 +484,34 @@ watch(
 }
 
 /* ── AI 분석 설명 */
-.xai-text-box {
-  font-family: 'Pretendard', sans-serif;
-}
 .xai-text-box :deep(.xai-paragraph) {
-  margin: 0 0 10px;
-  font-size: 13px;
-  line-height: 1.75;
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.xai-text-box :deep(.xai-tag) {
+  display: inline-block;
+  font-size: 11px;
   font-weight: 700;
   color: #5865f2;
+  margin-bottom: 2px;
+}
+.xai-text-box :deep(.xai-body) {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text2);
+  line-height: 1.7;
 }
 .xai-text-box :deep(.xai-paragraph:last-child) {
   margin-bottom: 0;
 }
 .xai-text-box :deep(.xai-empty) {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 400;
   color: var(--text3);
 }
 .xai-text-box :deep(.xai-spacer) {
-  height: 8px;
+  height: 6px;
 }
 </style>

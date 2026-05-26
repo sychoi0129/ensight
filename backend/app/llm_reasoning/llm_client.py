@@ -80,7 +80,7 @@ def generate_report(
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
-        temperature=gen.get("temperature", 0.7),
+        temperature=gen.get("temperature", 1.0),
     )
     return response.choices[0].message.content or "", "openai"
 
@@ -91,7 +91,7 @@ def _generate_gemini(system: str, prompt: str, gen: dict[str, Any]) -> str:
         raise ValueError("GEMINI_API_KEY is not set")
 
     model = (settings.gemini_model or "gemini-2.0-flash").strip()
-    temperature = float(gen.get("temperature", 0.7))
+    temperature = float(gen.get("temperature", 1.0))
     body = {
         "contents": [
             {

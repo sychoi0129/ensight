@@ -5,7 +5,7 @@
         <div class="logo-mark">E</div>
         <div>
           <div class="logo-text">Ensight ✦</div>
-          <div class="logo-sub">전국 전력 수요 예측 시스템</div>
+          <div class="logo-sub">전국 지역별 전력 수요 예측 시스템</div>
         </div>
       </div>
 
@@ -56,7 +56,7 @@
     <main class="main-content">
       <div class="page-header">
         <div>
-          <div class="page-breadcrumb">Ensight ✦ 전국 전력 수요 예측 시스템</div>
+          <div class="page-breadcrumb">Ensight ✦ 전국 지역별 전력 수요 예측 시스템</div>
           <div class="page-title">{{ currentTabLabel }}</div>
         </div>
         <div class="page-header-right">
@@ -99,7 +99,7 @@
         <div class="kpi-card alert">
           <div class="kpi-card-inner">
             <div>
-              <div class="kpi-tag">뉴스 이벤트</div>
+              <div class="kpi-tag">수집된 뉴스</div>
               <div class="kpi-value">{{ newsKeywordCount }}</div>
               <div class="kpi-unit">해당 지역/날짜 키워드 카운트</div>
             </div>

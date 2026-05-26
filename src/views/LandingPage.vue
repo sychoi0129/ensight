@@ -20,9 +20,12 @@
     </nav>
 
     <!-- HERO -->
-    <section class="lp-hero">
+    <section class="lp-hero" ref="heroRef">
       <div class="lp-hero-bg"></div>
       <div class="lp-hero-overlay"></div>
+
+      <!-- 전기 파티클 캔버스 -->
+      <canvas ref="particleCanvas" class="lp-particle-canvas"></canvas>
 
       <!-- 전력망 SVG 배경 -->
       <svg class="lp-hero-grid" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
@@ -64,7 +67,7 @@
           AI-Powered Grid Intelligence
         </div>
         <h1 class="lp-hero-title">
-          전력망의 효율과 안정을<br>
+          전력망의 효율과 공급 안정성을<br>
           <em>데이터로 예측</em>합니다
         </h1>
         <p class="lp-hero-desc">
@@ -81,11 +84,11 @@
       <div class="lp-hero-stats">
         <div class="lp-stat-item">
           <div class="lp-stat-value">24<span>시간</span></div>
-          <div class="lp-stat-label">예측 선행 구간</div>
+          <div class="lp-stat-label">예측 구간</div>
         </div>
         <div class="lp-stat-item">
           <div class="lp-stat-value">14<span>개</span></div>
-          <div class="lp-stat-label">전국 KEPCO 지역 관측소</div>
+          <div class="lp-stat-label">전국 한국전력공사 지역 관측소</div>
         </div>
         <div class="lp-stat-item">
           <div class="lp-stat-value">Chronos<span>-2</span></div>
@@ -99,21 +102,24 @@
     </section>
 
     <!-- FEATURES -->
-    <section id="features" class="lp-section lp-section-gray">
+    <section id="features" class="lp-section lp-section-features">
       <div class="lp-section-inner">
         <div class="lp-section-header reveal" :class="{ visible: revealed.features }">
-          <div class="lp-section-tag">Core Features</div>
-          <h2 class="lp-section-title">전력 수요 예측을 위한<br>통합 인텔리전스</h2>
-          <p class="lp-section-desc">시계열 분석부터 뉴스 기반 이벤트 감지, XAI 설명까지 — 전력망 의사결정에 필요한 모든 기능을 하나의 대시보드에서.</p>
+          <div class="lp-section-tag lp-tag-light">Core Features</div>
+          <h2 class="lp-section-title lp-title-light">전력 수요 예측을 위한<br>통합 인텔리전스</h2>
+          <p class="lp-section-desc lp-desc-light">시계열 분석부터 뉴스 기반 이벤트 감지, XAI 설명까지 — 전력망 의사결정에 필요한 모든 기능을 하나의 대시보드에서.</p>
         </div>
         <div class="lp-features-grid">
           <div v-for="(f, i) in features" :key="f.title"
                class="lp-feature-card reveal"
                :class="{ visible: revealed.features }"
                :style="{ transitionDelay: (i * 0.08) + 's' }">
-            <div class="lp-feature-icon" :class="f.color">{{ f.icon }}</div>
-            <div class="lp-feature-title">{{ f.title }}</div>
-            <div class="lp-feature-desc">{{ f.desc }}</div>
+            <div class="lp-feature-card-img" :style="{ backgroundImage: 'url(' + f.img + ')' }"></div>
+            <div class="lp-feature-card-overlay"></div>
+            <div class="lp-feature-card-glass">
+              <div class="lp-feature-title--light">{{ f.title }}</div>
+              <div class="lp-feature-desc--light">{{ f.desc }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -126,7 +132,7 @@
           <div class="lp-section-tag" style="color: var(--blue)">Performance</div>
           <h2 class="lp-section-title" style="color:#fff">데이터 기반의<br>정확한 예측</h2>
           <p class="lp-section-desc" style="color:rgba(255,255,255,0.6)">
-            2012–2014년 KEPCO 실측 데이터로 검증된 모델. 전력 계통의 복잡한 패턴을 멀티모달 입력으로 포착합니다.
+            2012–2014년 한국전력공사 실측 데이터로 검증된 모델. 전력 계통의 복잡한 패턴을 멀티모달 입력으로 포착합니다.
           </p>
         </div>
         <div class="lp-metrics-grid reveal" :class="{ visible: revealed.metrics }" style="transition-delay:.15s">
@@ -168,7 +174,7 @@
           <p class="lp-cta-desc">지역과 날짜를 선택하는 것만으로 Chronos-2 기반 24시간 전력 수요 예측과 XAI 분석 결과를 확인할 수 있습니다.</p>
           <div class="lp-cta-actions">
             <button class="lp-hero-btn-primary" @click="goToDashboard">수요 예측 시작하기 →</button>
-            <a href="https://github.com" class="lp-hero-btn-ghost" target="_blank">GitHub 보기</a>
+            <a href="https://github.com/sychoi0129/ensight" class="lp-hero-btn-ghost" target="_blank">GitHub 보기</a>
           </div>
         </div>
       </div>
@@ -183,7 +189,6 @@
       <div class="lp-footer-links">
         <button @click="goToDashboard">대시보드</button>
         <a href="https://github.com/sychoi0129/ensight" target="_blank">GitHub</a>
-        <a href="#">팀 소개</a>
       </div>
     </footer>
 
@@ -196,22 +201,165 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const isScrolled = ref(false)
+const heroRef = ref(null)
+const particleCanvas = ref(null)
 
 function goToDashboard() {
   router.push('/dashboard')
 }
 
-// ── 스크롤 핸들러
 function onScroll() {
   isScrolled.value = window.scrollY > 60
 }
 
-// ── Intersection Observer (스크롤 reveal)
+// ── 전기 파티클 물리엔진 (빛무리 + 파직 번개만, 연결선 없음)
+let animId = null
+let mouse = { x: -9999, y: -9999 }
+
+function initParticles() {
+  const canvas = particleCanvas.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+
+  function resize() {
+    canvas.width  = canvas.offsetWidth
+    canvas.height = canvas.offsetHeight
+  }
+  resize()
+  window.addEventListener('resize', resize)
+
+  // 색상: 파란/시안/보라/흰 계열만
+  const COLORS = [
+    { r: 123, g: 142, b: 240 }, // #7b8ef0 보라파랑
+    { r: 17,  g: 205, b: 239 }, // #11cdef 시안
+    { r: 165, g: 180, b: 252 }, // #a5b4fc 연보라
+    { r: 94,  g: 114, b: 228 }, // #5e72e4 인디고
+    { r: 200, g: 210, b: 255 }, // 연청백
+  ]
+
+  const COUNT = 70
+
+  const particles = Array.from({ length: COUNT }, () => {
+    const c = COLORS[Math.floor(Math.random() * COLORS.length)]
+    return {
+      x:       Math.random() * canvas.width,
+      y:       Math.random() * canvas.height,
+      vx:      (Math.random() - 0.5) * 0.45,
+      vy:      (Math.random() - 0.5) * 0.45,
+      // 빛무리 반지름: 크고 작은 것 혼합
+      baseR:   Math.random() * 28 + 8,
+      r:       0,
+      color:   c,
+      // pulse 위상
+      phase:   Math.random() * Math.PI * 2,
+      speed:   Math.random() * 0.018 + 0.008,
+      // 작은 핵심 dot 크기
+      dotR:    Math.random() * 1.4 + 0.4,
+    }
+  })
+
+  function draw() {
+    animId = requestAnimationFrame(draw)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    const W = canvas.width
+    const H = canvas.height
+
+    // 파티클 업데이트
+    for (const p of particles) {
+      // 마우스 반발
+      const mdx = p.x - mouse.x
+      const mdy = p.y - mouse.y
+      const md  = Math.sqrt(mdx * mdx + mdy * mdy)
+      if (md < 180 && md > 0) {
+        const f = (1 - md / 180) * 0.5
+        p.vx += (mdx / md) * f
+        p.vy += (mdy / md) * f
+      }
+
+      p.phase += p.speed
+      // pulse: 0.6~1.0 사이로 빛무리 크기 맥동
+      const pulse = 0.7 + Math.sin(p.phase) * 0.3
+      p.r = p.baseR * pulse
+
+      p.vx *= 0.972
+      p.vy *= 0.972
+      p.x  += p.vx
+      p.y  += p.vy
+
+      if (p.x < 0)  { p.x = 0; p.vx *= -1 }
+      if (p.x > W)  { p.x = W; p.vx *= -1 }
+      if (p.y < 0)  { p.y = 0; p.vy *= -1 }
+      if (p.y > H)  { p.y = H; p.vy *= -1 }
+    }
+
+    // 빛무리 그리기 (선 없이 glow blob만)
+    for (const p of particles) {
+      const { r: gr, g: gg, b: gb } = p.color
+      // 바깥 넓은 glow
+      const outerGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r)
+      outerGrad.addColorStop(0,   `rgba(${gr},${gg},${gb},0.22)`)
+      outerGrad.addColorStop(0.5, `rgba(${gr},${gg},${gb},0.08)`)
+      outerGrad.addColorStop(1,   `rgba(${gr},${gg},${gb},0)`)
+      ctx.globalAlpha = 1
+      ctx.fillStyle   = outerGrad
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+      ctx.fill()
+
+      // 안쪽 밝은 코어 glow
+      const coreR    = p.r * 0.38
+      const coreGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, coreR)
+      coreGrad.addColorStop(0,   `rgba(${gr},${gg},${gb},0.85)`)
+      coreGrad.addColorStop(0.6, `rgba(${gr},${gg},${gb},0.35)`)
+      coreGrad.addColorStop(1,   `rgba(${gr},${gg},${gb},0)`)
+      ctx.fillStyle = coreGrad
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, coreR, 0, Math.PI * 2)
+      ctx.fill()
+
+      // 핵심 흰 dot (아주 작게)
+      ctx.fillStyle   = `rgba(220,230,255,0.9)`
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.dotR, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    ctx.globalAlpha = 1
+  }
+
+  draw()
+
+  return () => {
+    window.removeEventListener('resize', resize)
+    if (animId) cancelAnimationFrame(animId)
+  }
+}
+
+let cleanupParticles = null
+
 const revealed = ref({ features: false, metrics: false, how: false, tech: false, cta: false })
 let observer = null
 
 onMounted(() => {
   window.addEventListener('scroll', onScroll)
+
+  setTimeout(() => {
+    cleanupParticles = initParticles()
+
+    const hero = heroRef.value
+    if (hero) {
+      hero.addEventListener('mousemove', e => {
+        const rect = hero.getBoundingClientRect()
+        mouse.x = e.clientX - rect.left
+        mouse.y = e.clientY - rect.top
+      })
+      hero.addEventListener('mouseleave', () => {
+        mouse.x = -9999
+        mouse.y = -9999
+      })
+    }
+  }, 50)
 
   observer = new IntersectionObserver((entries) => {
     entries.forEach(e => {
@@ -223,16 +371,15 @@ onMounted(() => {
 
   document.querySelectorAll('[data-section]').forEach(el => observer.observe(el))
 
-  // 섹션 헤더에 data-section 속성 동적 바인딩
   const sectionMap = {
     '#features .lp-section-header': 'features',
-    '#features .lp-features-grid': 'features',
+    '#features .lp-features-grid':  'features',
     '.lp-metrics-banner .lp-metrics-text': 'metrics',
     '.lp-metrics-banner .lp-metrics-grid': 'metrics',
     '#how .lp-section-header': 'how',
-    '#how .lp-steps-grid': 'how',
+    '#how .lp-steps-grid':     'how',
     '#tech .reveal': 'tech',
-    '.lp-cta-box': 'cta',
+    '.lp-cta-box':   'cta',
   }
   Object.entries(sectionMap).forEach(([sel, key]) => {
     document.querySelectorAll(sel).forEach(el => {
@@ -244,51 +391,59 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
+  cleanupParticles?.()
   observer?.disconnect()
 })
 
-// ── 데이터
 const features = [
-  { icon: '🔮', color: 'purple', title: 'Chronos-2 예측 모델',   desc: 'Amazon의 Chronos-2 Transformer foundation 모델 기반. 과거 전력 패턴을 학습해 24시간 수요를 정밀하게 예측합니다.' },
-  { icon: '🌤', color: 'blue',   title: '기상 데이터 통합',       desc: '기온·습도·풍속 등 기상 변수를 실시간으로 반영하여 계절적 부하 변동을 포착합니다.' },
-  { icon: '📰', color: 'amber',  title: '뉴스 임베딩 분석',       desc: 'BigKinds API 기반 뉴스 데이터를 KLUE/RoBERTa로 임베딩, PCA 차원 축소 후 전력 수요 영향 이벤트를 자동 감지합니다.' },
-  { icon: '🧠', color: 'green',  title: 'XAI 설명 가능성',        desc: '예측 결과의 근거를 자연어로 설명합니다. 어떤 변수가 예측에 얼마나 기여했는지 요인 중요도와 함께 제공합니다.' },
-  { icon: '🗺', color: 'cyan',   title: '지역별 3D 현황 맵',      desc: 'deck.gl ColumnLayer 기반 3D 지도로 전국 14개 KEPCO 지역 관측소의 부하 현황을 직관적으로 시각화합니다.' },
-  { icon: '⚡', color: 'pink',   title: 'ESS 운영 분석',          desc: '에너지저장장치(ESS) 가동 전후 피크 부하 변화를 비교 분석하여 배터리 운영 전략 수립을 지원합니다.' },
+  {
+    title: 'Chronos-2 예측 모델',
+    desc: 'Amazon의 Chronos-2 Transformer foundation 모델 기반. 과거 전력 패턴을 학습해 향후 24시간의 전력 수요를 정밀하게 예측합니다.',
+    img: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80',
+  },
+  {
+    title: '기상 데이터 통합',
+    desc: '기온·습도·풍속 등 기상 변수를 반영하여 계절적 부하 변동을 포착합니다.',
+    img: 'https://images.unsplash.com/photo-1454789476662-53eb23ba5907?q=80&w=2704&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    title: '뉴스 임베딩 분석',
+    desc: 'BigKinds 뉴스 데이터 크롤링 후 text-3-embedding 기법으로 정제한 뉴스 컨텍스트가 전력 수요 영향 이벤트를 자동 감지합니다.',
+    img: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&q=80',
+  },
+  {
+    title: 'XAI 설명 가능성',
+    desc: '예측 결과의 근거를 자연어로 설명합니다. 어떤 변수가 예측에 얼마나 기여했는지, 정량적인 요인 중요도와 함께 제공합니다.',
+    img: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?w=800&q=80',
+  },
+  {
+    title: '지역별 3D 현황 맵',
+    desc: 'deck.gl ColumnLayer 기반 3D 지도로 전국 14개 한국전력공사 지역 관측소의 부하 현황을 직관적으로 시각화합니다.',
+    img: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80',
+  },
+  {
+    title: 'ESS 운영 분석',
+    desc: '에너지저장장치(ESS) 가동 전후 피크 부하 변화를 비교 분석하여 배터리 운영 전략 수립을 지원합니다.',
+    img: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&q=80',
+  },
 ]
 
 const metrics = [
-  { num: '2012', unit: '–14', label: '학습 데이터 기간',   sub: 'KEPCO 실측 데이터' },
-  { num: '1',    unit: 'hr',  label: '데이터 해상도',       sub: '시간 단위 전력 계측' },
-  { num: '3',    unit: '종',  label: '멀티모달 피처',       sub: '전력·기상·뉴스 통합' },
-  { num: 'FastAPI', unit: '', label: '백엔드 아키텍처',     sub: 'RESTful · uvicorn' },
+  { num: '2012-2014', unit: '', label: '학습 데이터 기간',   sub: '한국전력공사 실측 데이터' },
+  { num: '1hr',       unit: '', label: '데이터 해상도',       sub: '시간 단위 전력 계측' },
+  { num: '3종',       unit: '', label: '멀티모달 피처',       sub: '전력·기상·뉴스 통합' },
+  { num: 'FastAPI',   unit: '', label: '백엔드 아키텍처',     sub: 'RESTful · uvicorn' },
 ]
 
 const steps = [
-  { title: '데이터 수집',        desc: 'KEPCO 전력 계측, KMA 기상 API, BigKinds 뉴스 API에서 실시간 데이터를 수집합니다.' },
-  { title: '피처 엔지니어링',    desc: '기상 변수 정규화, 뉴스 임베딩(RoBERTa) 후 PCA 차원 축소로 핵심 피처를 추출합니다.' },
-  { title: 'Chronos-2 추론',    desc: 'Foundation 모델이 과거 패턴과 멀티모달 피처를 통합해 24시간 전력 수요를 예측합니다.' },
-  { title: 'XAI 설명 생성',     desc: '요인 중요도와 LLM 기반 자연어 해석을 결합해 예측 근거를 직관적으로 설명합니다.' },
-]
-
-const techs = [
-  { name: 'Vue.js 3',       color: '#646cff' },
-  { name: 'FastAPI',        color: '#0070f3' },
-  { name: 'ECharts',        color: '#e33d28' },
-  { name: 'deck.gl',        color: '#75b2dd' },
-  { name: 'Plotly',         color: '#636efa' },
-  { name: 'Chronos-2',      color: '#ff7043' },
-  { name: 'KLUE/RoBERTa',   color: '#00b894' },
-  { name: 'PCA',            color: '#6c63ff' },
-  { name: 'MapLibre GL',    color: '#f7b731' },
-  { name: 'CARTO Basemap',  color: '#2c3e50' },
-  { name: 'BigKinds API',   color: '#e84393' },
-  { name: 'Pretendard',     color: '#38bdf8' },
+  { title: '데이터 수집',      desc: '한국전력공사 전력 계측, 기상청 특보 API, BigKinds 뉴스 크롤링으로 데이터를 수집합니다.' },
+  { title: '피처 엔지니어링',  desc: '기상 특보 원-핫 인코딩, 뉴스 임베딩(text-3-embedding) 멀티모달 컨텍스트로 핵심 피처를 추출합니다.' },
+  { title: 'Chronos-2 추론',  desc: 'Foundation 모델이 과거 패턴과 멀티모달 피처를 통합해 24시간 전력 수요를 예측합니다.' },
+  { title: 'XAI 설명 생성',   desc: '요인 중요도와 LLM 기반 자연어 해석을 결합해 예측 근거를 직관적으로 설명합니다.' },
 ]
 </script>
 
 <style scoped>
-/* ── 전체 랜딩 래퍼 ── */
 .landing {
   font-family: 'Pretendard', -apple-system, sans-serif;
   background: #f4f5f7;
@@ -298,7 +453,6 @@ const techs = [
   min-width: 1280px;
 }
 
-/* ── NAV ── */
 .lp-nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 200;
   display: flex; align-items: center; justify-content: space-between;
@@ -331,8 +485,7 @@ const techs = [
   padding: 8px 18px; border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.25); background: transparent;
   color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 500;
-  font-family: 'Pretendard', sans-serif; cursor: pointer;
-  transition: all .15s;
+  font-family: 'Pretendard', sans-serif; cursor: pointer; transition: all .15s;
 }
 .lp-btn-ghost:hover { border-color: rgba(255,255,255,0.5); color: #fff; background: rgba(255,255,255,0.08); }
 
@@ -345,7 +498,6 @@ const techs = [
 }
 .lp-btn-primary:hover { background: #7b8ef0; transform: translateY(-1px); }
 
-/* ── HERO ── */
 .lp-hero {
   position: relative; min-height: 100vh;
   display: flex; flex-direction: column;
@@ -364,6 +516,12 @@ const techs = [
     radial-gradient(ellipse 80% 60% at 50% 30%, rgba(94,114,228,0.18) 0%, transparent 70%),
     linear-gradient(180deg, rgba(14,14,44,0.55) 0%, rgba(14,14,44,0.3) 50%, rgba(14,14,44,0.85) 100%);
 }
+
+.lp-particle-canvas {
+  position: absolute; inset: 0; z-index: 3;
+  pointer-events: none; width: 100%; height: 100%;
+}
+
 .lp-hero-grid {
   position: absolute; inset: 0; z-index: 2;
   opacity: 0.22; pointer-events: none;
@@ -372,7 +530,7 @@ const techs = [
   position: relative; z-index: 10;
   text-align: center; max-width: 820px; padding: 0 32px;
   animation: lpFadeUp .9s cubic-bezier(.22,1,.36,1) both;
-  margin-top: 20px;
+  margin-top: -10px;
 }
 @keyframes lpFadeUp {
   from { opacity: 0; transform: translateY(32px); }
@@ -398,8 +556,8 @@ const techs = [
 }
 
 .lp-hero-title {
-  font-size: clamp(38px, 5.5vw, 68px); font-weight: 800;
-  color: #fff; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 22px; word-break: keep-all;
+  font-size: clamp(38px, 5.5vw, 65px); font-weight: 800;
+  color: #fff; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 22px; word-break: normal;
 }
 .lp-hero-title em {
   font-style: normal;
@@ -430,7 +588,7 @@ const techs = [
 .lp-hero-btn-ghost:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.12); transform: translateY(-1px); }
 
 .lp-hero-stats {
-  position: absolute; bottom: 48px; left: 0; right: 0; z-index: 10;
+  position: absolute; bottom: 90px; left: 0; right: 0; z-index: 10;
   display: flex; justify-content: center; gap: 2px;
   animation: lpFadeUp 1.1s .3s cubic-bezier(.22,1,.36,1) both;
 }
@@ -449,12 +607,11 @@ const techs = [
 .lp-stat-value span { font-size: 14px; color: #7b8ef0; margin-left: 2px; }
 .lp-stat-label { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 5px; letter-spacing: .05em; }
 
-/* ── 공통 섹션 ── */
 .lp-section { padding: 100px 0; }
 .lp-section-gray  { background: #f4f5f7; }
 .lp-section-white { background: #fff; }
 .lp-section-inner { max-width: 1200px; margin: 0 auto; padding: 0 48px; }
-.lp-section-header { max-width: 560px; margin-bottom: 56px; }
+.lp-section-header { max-width: 800px; margin-bottom: 56px; }
 
 .lp-section-tag {
   display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .1em;
@@ -467,37 +624,86 @@ const techs = [
 }
 .lp-section-desc { font-size: 16px; color: #6b7280; line-height: 1.75; word-break: keep-all; }
 
-/* ── FEATURES ── */
-.lp-features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.lp-section-features {
+  background: #fff;
+}
+.lp-tag-light   { color: #5e72e4; }
+.lp-title-light { color: #1a1a2e; }
+.lp-desc-light  { color: #6b7280; }
+
+.lp-features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
 .lp-feature-card {
-  background: #fff; border: 1px solid #e9ecef; border-radius: 16px; padding: 28px 26px;
-  transition: box-shadow .2s, transform .15s, opacity .7s ease, translate .7s ease;
-  position: relative; overflow: hidden;
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: transform .2s, box-shadow .2s, opacity .7s ease;
+  cursor: default;
 }
-.lp-feature-card::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #5e72e4, #11cdef);
-  opacity: 0; transition: opacity .2s;
+.lp-feature-card:hover { transform: translateY(-5px); box-shadow: 0 20px 48px rgba(0,0,0,0.22); }
+.lp-feature-card:hover .lp-feature-card-img { transform: scale(1.06); }
+
+/* 배경 이미지 div — zoom 애니메이션용 */
+.lp-feature-card-img {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform .45s cubic-bezier(.22,1,.36,1);
 }
-.lp-feature-card:hover { box-shadow: 0 8px 32px rgba(94,114,228,0.13); transform: translateY(-3px); }
-.lp-feature-card:hover::before { opacity: 1; }
 
-.lp-feature-icon {
-  width: 48px; height: 48px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px; margin-bottom: 18px;
+/* 카드 위 어두운 그라디언트 오버레이 */
+.lp-feature-card-overlay {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(
+    to bottom,
+    rgba(10,10,40,0.08) 0%,
+    rgba(10,10,40,0.42) 55%,
+    rgba(10,10,40,0.82) 100%
+  );
+  transition: background .25s;
 }
-.lp-feature-icon.purple { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
-.lp-feature-icon.blue   { background: linear-gradient(135deg, #eff6ff, #dbeafe); }
-.lp-feature-icon.green  { background: linear-gradient(135deg, #f0fdf4, #bbf7d0); }
-.lp-feature-icon.amber  { background: linear-gradient(135deg, #fffbeb, #fde68a); }
-.lp-feature-icon.pink   { background: linear-gradient(135deg, #fdf2f8, #f9d8f0); }
-.lp-feature-icon.cyan   { background: linear-gradient(135deg, #ecfeff, #a5f3fc); }
+.lp-feature-card:hover .lp-feature-card-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(10,10,40,0.04) 0%,
+    rgba(10,10,40,0.32) 50%,
+    rgba(10,10,40,0.72) 100%
+  );
+}
 
-.lp-feature-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; letter-spacing: -0.01em; word-break: keep-all; }
-.lp-feature-desc  { font-size: 13px; color: #6b7280; line-height: 1.65; word-break: keep-all; }
+/* 글라스 텍스트 박스 */
+.lp-feature-card-glass {
+  position: relative;
+  z-index: 2;
+  margin: 14px;
+  padding: 14px 16px;
+  background: rgba(10,10,30,0.32);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background .2s, border-color .2s, transform .2s;
+}
+.lp-feature-card:hover .lp-feature-card-glass {
+  background: rgba(10,10,30,0.22);
+  border-color: rgba(123,142,240,0.45);
+}
 
-/* ── METRICS ── */
+.lp-feature-title--light {
+  font-size: 14px; font-weight: 700; color: #fff;
+  margin-bottom: 5px; letter-spacing: -0.01em; word-break: keep-all;
+}
+.lp-feature-desc--light {
+  font-size: 12px; color: rgba(255,255,255,0.72);
+  line-height: 1.6; word-break: keep-all;
+}
+
 .lp-metrics-banner {
   background: linear-gradient(135deg, #1a1a4e 0%, #2d2d7e 50%, #3a3a9e 100%);
   padding: 80px 48px; position: relative; overflow: hidden;
@@ -527,7 +733,6 @@ const techs = [
 .lp-metric-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px; letter-spacing: .04em; }
 .lp-metric-sub   { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 3px; font-family: 'JetBrains Mono'; }
 
-/* ── HOW IT WORKS ── */
 .lp-steps-grid {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
   position: relative;
@@ -548,19 +753,14 @@ const techs = [
 .lp-step-title { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; word-break: keep-all; }
 .lp-step-desc  { font-size: 12px; color: #6b7280; line-height: 1.65; word-break: keep-all; }
 
-/* ── TECH ── */
-.lp-tech-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 40px; }
-.lp-tech-pill {
-  display: flex; align-items: center; gap: 6px;
-  background: #fff; border: 1px solid #e9ecef; border-radius: 100px;
-  padding: 8px 16px; font-size: 12px; font-weight: 600; color: #4a5568;
-  font-family: 'JetBrains Mono'; transition: all .15s;
+.lp-cta-section {
+  padding: 100px 48px;
+  text-align: center;
+  position: relative;
+  background:
+    linear-gradient(to bottom, #ffffff 0%, rgba(255,255,255,0.85) 50%, rgba(255, 255, 255, 0.3) 100%),
+    url('https://images.unsplash.com/photo-1554668048-5055c5654bbc?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') center / cover no-repeat;
 }
-.lp-tech-pill:hover { border-color: #5e72e4; color: #5e72e4; background: #f0f2ff; }
-.lp-tech-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
-/* ── CTA ── */
-.lp-cta-section { padding: 100px 48px; text-align: center; background: linear-gradient(180deg, #fff 0%, #f4f5f7 100%); }
 .lp-cta-box {
   max-width: 640px; margin: 0 auto;
   background: linear-gradient(135deg, #1a1a4e, #2d2d7e);
@@ -577,7 +777,6 @@ const techs = [
 .lp-cta-desc  { font-size: 15px; color: rgba(255,255,255,0.6); line-height: 1.7; margin-bottom: 32px; word-break: keep-all; }
 .lp-cta-actions { display: flex; gap: 12px; justify-content: center; }
 
-/* ── FOOTER ── */
 .lp-footer {
   background: #0e0e2c; padding: 36px 48px;
   display: flex; align-items: center; justify-content: space-between;
@@ -594,7 +793,6 @@ const techs = [
 .lp-footer-links a:hover,
 .lp-footer-links button:hover { color: rgba(255,255,255,0.8); }
 
-/* ── Scroll reveal ── */
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
 .reveal.visible { opacity: 1; transform: translateY(0); }
 </style>

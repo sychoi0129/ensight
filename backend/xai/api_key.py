@@ -1,1 +1,1 @@
-open_api_key=""
+open_api_key="" # github에 올릴 때는 빈 문자열로 유지
