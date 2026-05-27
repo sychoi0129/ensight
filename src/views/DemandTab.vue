@@ -486,19 +486,19 @@ watch(
 /* ── AI 분석 설명 */
 .xai-text-box :deep(.xai-paragraph) {
   margin: 0 0 8px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .xai-text-box :deep(.xai-tag) {
   display: inline-block;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   color: #5865f2;
   margin-bottom: 2px;
 }
 .xai-text-box :deep(.xai-body) {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   color: var(--text2);
   line-height: 1.7;

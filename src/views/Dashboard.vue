@@ -99,7 +99,7 @@
         <div class="kpi-card alert">
           <div class="kpi-card-inner">
             <div>
-              <div class="kpi-tag">수집된 뉴스</div>
+              <div class="kpi-tag">뉴스 키워드 개수</div>
               <div class="kpi-value">{{ newsKeywordCount }}</div>
               <div class="kpi-unit">해당 지역/날짜 키워드 카운트</div>
             </div>

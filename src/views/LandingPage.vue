@@ -67,8 +67,8 @@
           AI-Powered Grid Intelligence
         </div>
         <h1 class="lp-hero-title">
-          전력망의 효율과 공급 안정성을<br>
-          <em>데이터로 예측</em>합니다
+          지역별 전력 수요량,<br>
+          <em>AI</em>가 <em>예측</em>하고 <em>설명</em>합니다
         </h1>
         <p class="lp-hero-desc">
           Ensight는 Chronos-2 Transformer 기반 멀티모달 전력 수요 예측 시스템입니다.
@@ -174,7 +174,6 @@
           <p class="lp-cta-desc">지역과 날짜를 선택하는 것만으로 Chronos-2 기반 24시간 전력 수요 예측과 XAI 분석 결과를 확인할 수 있습니다.</p>
           <div class="lp-cta-actions">
             <button class="lp-hero-btn-primary" @click="goToDashboard">수요 예측 시작하기 →</button>
-            <a href="https://github.com/sychoi0129/ensight" class="lp-hero-btn-ghost" target="_blank">GitHub 보기</a>
           </div>
         </div>
       </div>
@@ -429,7 +428,7 @@ const features = [
 ]
 
 const metrics = [
-  { num: '2012-2014', unit: '', label: '학습 데이터 기간',   sub: '한국전력공사 실측 데이터' },
+  { num: '2012년', unit: '', label: '학습 데이터 기간',   sub: '한국전력공사 실측 데이터' },
   { num: '1hr',       unit: '', label: '데이터 해상도',       sub: '시간 단위 전력 계측' },
   { num: '3종',       unit: '', label: '멀티모달 피처',       sub: '전력·기상·뉴스 통합' },
   { num: 'FastAPI',   unit: '', label: '백엔드 아키텍처',     sub: 'RESTful · uvicorn' },
@@ -724,34 +723,34 @@ const steps = [
 }
 .lp-metric-box:hover { background: rgba(255,255,255,0.13); }
 .lp-metric-num {
-  font-size: 32px; font-weight: 700; font-family: 'JetBrains Mono';
-  letter-spacing: -0.04em; line-height: 1;
+  font-size: clamp(18px, 2.2vw, 32px); font-weight: 700; font-family: 'JetBrains Mono';
+  letter-spacing: -0.04em; line-height: 1.2; word-break: break-all;
   background: linear-gradient(90deg, #fff, #a5b4fc);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 .lp-metric-num small { font-size: 16px; opacity: .7; }
-.lp-metric-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px; letter-spacing: .04em; }
-.lp-metric-sub   { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 3px; font-family: 'JetBrains Mono'; }
+.lp-metric-label { font-size: 12px; color: rgba(255,255,255,0.85); margin-top: 6px; letter-spacing: .04em; }
+.lp-metric-sub   { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px; font-family: 'JetBrains Mono'; }
 
 .lp-steps-grid {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
   position: relative;
 }
 .lp-steps-grid::before {
-  content: ''; position: absolute; top: 28px; left: 10%; right: 10%; height: 1px;
+  content: ''; position: absolute; top: 36px; left: 10%; right: 10%; height: 1px;
   background: linear-gradient(90deg, transparent, #5e72e4, #11cdef, transparent);
   z-index: 0;
 }
-.lp-step-item { text-align: center; padding: 0 24px; position: relative; z-index: 1; }
+.lp-step-item { text-align: center; padding: 0 32px; position: relative; z-index: 1; }
 .lp-step-num {
-  width: 56px; height: 56px; border-radius: 50%;
+  width: 72px; height: 72px; border-radius: 50%;
   background: linear-gradient(135deg, #5e72e4, #4355c7);
-  color: #fff; font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono';
-  display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
+  color: #fff; font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono';
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;
   box-shadow: 0 6px 20px rgba(94,114,228,0.4);
 }
-.lp-step-title { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; word-break: keep-all; }
-.lp-step-desc  { font-size: 12px; color: #6b7280; line-height: 1.65; word-break: keep-all; }
+.lp-step-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; word-break: keep-all; }
+.lp-step-desc  { font-size: 14px; color: #6b7280; line-height: 1.75; word-break: keep-all; }
 
 .lp-cta-section {
   padding: 100px 48px;
