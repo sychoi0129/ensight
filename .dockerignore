@@ -5,7 +5,11 @@ backend/.env
 backend/__pycache__
 .env
 .env.local
-.git
+.git/*
+!.git/HEAD
+!.git/refs
+!.git/refs/**
+!.git/packed-refs
 models
 RT_scheduling_result
 capstone

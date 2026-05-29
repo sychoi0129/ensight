@@ -41,7 +41,10 @@ if INDEX_FILE.exists():
             candidate = STATIC_DIR / full_path
             if candidate.is_file():
                 return FileResponse(candidate)
-        return FileResponse(INDEX_FILE)
+        return FileResponse(
+            INDEX_FILE,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 else:
 
     @app.get("/")

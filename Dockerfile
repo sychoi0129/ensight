@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1.7
 #
 # CloudType 통합 배포: Vue → backend/static, FastAPI가 /api + SPA 동시 서빙
-# 환경변수: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SCHEMA, DB_SSLMODE
-#           OPENAI_API_KEY (또는 LLM_PROVIDER=gemini + GEMINI_API_KEY)
 #
 # CloudType 배포 설정:
+#   Branch = master (최신 커밋 push 후 재배포)
 #   Port = 8000
 #   Health Check = /api/live
-#   Start command = (비움, Dockerfile ENTRYPOINT 사용)
-#   Build arguments = CACHE_BUST=1 (재배포마다 숫자 올리면 프론트 강제 재빌드)
+#   Start command = (비움)
+#
+# Git 커밋(.git/HEAD, refs)을 빌드에 포함 → push할 때마다 Vue static 자동 재빌드
 
 ############################
 # 1) Frontend build (Vue)
@@ -24,16 +24,28 @@ COPY public ./public
 COPY src ./src
 COPY scripts ./scripts
 
+# 커밋이 바뀌면 이 COPY 레이어가 무효화 → npm build 반드시 재실행
+COPY .git/HEAD .git/HEAD
+COPY .git/refs ./.git/refs
+
 ENV VITE_API_BASE_URL=
 
-# CACHE_BUST 빌드 인자를 바꾸면 Vue static이 새로 생성됨 (외부 URL 불필요)
-# CloudType → Build arguments: CACHE_BUST=2, 3… 재배포마다 숫자 올리기
-ARG CACHE_BUST=1
-RUN echo "cache-bust=${CACHE_BUST}" >/tmp/.cache-bust \
-    && rm -rf backend/static \
-    && mkdir -p backend/static \
-    && npm run build:unified \
-    && test -f backend/static/index.html
+RUN set -e; \
+    REF="$(cat .git/HEAD)"; \
+    case "$REF" in \
+      ref:*) \
+        REF_PATH=".git/${REF#ref: }"; \
+        if [ -f "$REF_PATH" ]; then COMMIT="$(cat "$REF_PATH")"; \
+        elif [ -f .git/packed-refs ]; then COMMIT="$(grep " ${REF#ref: }$" .git/packed-refs | awk '{print $1}')"; \
+        else COMMIT="unknown"; fi ;; \
+      *) COMMIT="$REF" ;; \
+    esac; \
+    echo "Building commit: $COMMIT"; \
+    echo "$COMMIT" > /tmp/BUILD_COMMIT; \
+    rm -rf backend/static; \
+    mkdir -p backend/static; \
+    npm run build:unified; \
+    test -f backend/static/index.html
 
 ############################
 # 2) Backend runtime (Python)
@@ -58,6 +70,7 @@ COPY backend ./
 
 RUN rm -rf ./static
 COPY --from=frontend /app/backend/static ./static
+COPY --from=frontend /tmp/BUILD_COMMIT ./BUILD_COMMIT
 
 COPY backend/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
