@@ -397,7 +397,7 @@ onUnmounted(() => {
 const features = [
   {
     title: 'Chronos-2 예측 모델',
-    desc: 'Amazon의 Chronos-2 Transformer foundation 모델 기반. 과거 전력 패턴을 학습해 향후 24시간의 전력 수요를 정밀하게 예측합니다.',
+    desc: 'Amazon의 Chronos-2 foundation 모델 기반, 과거 전력 패턴을 학습해 향후 24시간의 전력 수요를 예측합니다.',
     img: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80',
   },
   {
@@ -407,18 +407,18 @@ const features = [
   },
   {
     title: '뉴스 임베딩 분석',
-    desc: 'BigKinds 뉴스 데이터 크롤링 후 text-3-embedding 기법으로 정제한 뉴스 컨텍스트가 전력 수요 영향 이벤트를 자동 감지합니다.',
+    desc: 'BigKinds 크롤링 후 text-3-embedding 기법으로 정제한 뉴스 컨텍스트가 전력 수요 영향 이벤트를 감지합니다.',
     img: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&q=80',
   },
   {
     title: 'XAI 설명 가능성',
     desc: '예측 결과의 근거를 자연어로 설명합니다. 어떤 변수가 예측에 얼마나 기여했는지, 정량적인 요인 중요도와 함께 제공합니다.',
-    img: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?w=800&q=80',
+    img: 'https://images.unsplash.com/photo-1674027444485-cec3da58eef4?q=80&w=2664&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   },
   {
     title: '지역별 3D 현황 맵',
-    desc: 'deck.gl ColumnLayer 기반 3D 지도로 전국 14개 한국전력공사 지역 관측소의 부하 현황을 직관적으로 시각화합니다.',
-    img: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80',
+    desc: '3D 지도로 전국 14개 한국전력공사 지역 관측소의 부하 현황을 직관적으로 시각화합니다.',
+    img: 'https://images.unsplash.com/photo-1584931423298-c576fda54bd2?q=80&w=2670&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   },
   {
     title: 'ESS 운영 분석',
@@ -428,7 +428,7 @@ const features = [
 ]
 
 const metrics = [
-  { num: '2012년', unit: '', label: '학습 데이터 기간',   sub: '한국전력공사 실측 데이터' },
+  { num: '2012년', unit: '', label: '학습 데이터 범위',   sub: '한국전력공사 실측 데이터' },
   { num: '1hr',       unit: '', label: '데이터 해상도',       sub: '시간 단위 전력 계측' },
   { num: '3종',       unit: '', label: '멀티모달 피처',       sub: '전력·기상·뉴스 통합' },
   { num: 'FastAPI',   unit: '', label: '백엔드 아키텍처',     sub: 'RESTful · uvicorn' },
