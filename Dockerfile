@@ -26,16 +26,14 @@ COPY scripts ./scripts
 
 ENV VITE_API_BASE_URL=
 
-# ADD 대신 curl 사용 (Docker ADD URL warning 방지)
-# CACHE_BUST 빌드 인자를 바꾸면 Vue static이 새로 생성됨
+# CACHE_BUST 빌드 인자를 바꾸면 Vue static이 새로 생성됨 (외부 URL 불필요)
+# CloudType → Build arguments: CACHE_BUST=2, 3… 재배포마다 숫자 올리기
 ARG CACHE_BUST=1
-RUN apk add --no-cache curl \
-    && curl -fsSL "https://httpbin.org/uuid?bust=${CACHE_BUST}" -o /tmp/.docker-cache-bust \
+RUN echo "cache-bust=${CACHE_BUST}" >/tmp/.cache-bust \
     && rm -rf backend/static \
     && mkdir -p backend/static \
     && npm run build:unified \
-    && test -f backend/static/index.html \
-    && apk del curl
+    && test -f backend/static/index.html
 
 ############################
 # 2) Backend runtime (Python)
