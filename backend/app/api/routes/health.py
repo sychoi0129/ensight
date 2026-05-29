@@ -7,6 +7,12 @@ from app.core.db import SessionLocal
 router = APIRouter()
 
 
+@router.get("/live")
+def liveness() -> dict[str, str]:
+    """DB 없이 프로세스만 확인 (CloudType startup/readiness probe용)."""
+    return {"status": "ok"}
+
+
 @router.get("/health")
 def health_check() -> dict[str, int | str]:
     try:

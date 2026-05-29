@@ -2,8 +2,6 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.llm_reasoning.db_reasoning import build_reasoning_from_db
-
 router = APIRouter()
 
 _STATUS_TO_HTTP = {
@@ -22,6 +20,8 @@ def get_reasoning(
     ),
     eval_: bool = Query(False, alias="eval", description="true면 2차 LLM 평가 포함"),
 ) -> dict:
+    from app.llm_reasoning.db_reasoning import build_reasoning_from_db
+
     try:
         result = build_reasoning_from_db(region_id, issue_ts, include_eval=eval_)
     except ValueError as exc:

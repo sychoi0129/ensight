@@ -4,7 +4,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.cache import cache_response
 from app.core.db import SessionLocal
-from app.xai_sample.store import build_news_events, is_sample_region, list_sample_regions
 
 router = APIRouter()
 
@@ -26,6 +25,8 @@ def _region_name(db, region_id: int) -> str | None:
 @cache_response(ttl_seconds=3600)
 def get_xai_sample_regions() -> dict:
     """로컬 샘플 attention 파일이 있는 region_id 목록."""
+    from app.xai_sample.store import list_sample_regions
+
     return {
         "regions": list_sample_regions(),
         "rank_mode": "attention_x_log1p_count",
@@ -44,6 +45,8 @@ def get_news_events(
     region_id ↔ load_{region_id} (region_series_map.json 오버라이드 가능).
     """
     day = date[:10]
+
+    from app.xai_sample.store import build_news_events, is_sample_region
 
     if not is_sample_region(region_id):
         return build_news_events(region_id, "", day)
