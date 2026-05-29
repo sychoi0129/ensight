@@ -4,6 +4,7 @@
 # CloudType 환경변수: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SCHEMA, DB_SSLMODE
 #                     OPENAI_API_KEY (또는 LLM_PROVIDER=gemini + GEMINI_API_KEY)
 # PORT 는 CloudType이 자동 주입 (직접 설정하지 않음)
+# 프론트가 예전 빌드로 캐시될 때: CloudType 환경변수 CACHE_BUST=20260529-1 처럼 바꿔 재배포
 
 ############################
 # 1) Frontend build (Vue)
@@ -21,7 +22,9 @@ COPY scripts ./scripts
 
 # 같은 origin에서 /api 호출 (분리 배포가 아니면 VITE_API_BASE_URL 비움)
 ENV VITE_API_BASE_URL=
-RUN mkdir -p backend/static \
+ARG CACHE_BUST=1
+RUN echo "frontend build cache bust: ${CACHE_BUST}" \
+    && mkdir -p backend/static \
     && npm run build:unified
 
 
