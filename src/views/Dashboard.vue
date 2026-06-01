@@ -2,12 +2,9 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-logo" @click="goToLanding" style="cursor:pointer;" title="메인 페이지로">
-        <div class="logo-mark">E</div>
-        <div>
-          <div class="logo-text">Ensight ✦</div>
-          <div class="logo-sub">전국 지역별 전력 수요 예측 시스템</div>
-        </div>
+        <img src="/로고-하양.png" style="width:160px; object-fit:contain;" alt="Ensight" />
       </div>
+      <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0 0 28px 0;" />
 
       <div class="sidebar-section-label">조회 조건</div>
       <div class="sidebar-controls">
@@ -56,7 +53,7 @@
     <main class="main-content">
       <div class="page-header">
         <div>
-          <div class="page-breadcrumb">Ensight ✦ 전국 지역별 전력 수요 예측 시스템</div>
+          <div class="page-breadcrumb">전국 지역별 전력 수요 예측 시스템</div>
           <div class="page-title">{{ currentTabLabel }}</div>
         </div>
         <div class="page-header-right">

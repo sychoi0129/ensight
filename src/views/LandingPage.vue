@@ -3,12 +3,9 @@
 
     <!-- NAV -->
     <nav class="lp-nav" :class="{ scrolled: isScrolled }">
+      <!-- 변경 -->
       <a href="#" class="lp-nav-logo">
-        <div class="lp-logo-mark">E</div>
-        <div>
-          <div class="lp-logo-text">Ensight ✦</div>
-          <div class="lp-logo-sub">전국 지역별 전력 수요 예측 시스템</div>
-        </div>
+        <img src="/로고-그라데이션.png" style="height:32px; object-fit:contain;" alt="Ensight" />
       </a>
       <div class="lp-nav-cta">
         <div class="lp-nav-links">
@@ -68,7 +65,7 @@
         </div>
         <h1 class="lp-hero-title">
           지역별 전력 수요량,<br>
-          <em>AI</em>가 <em>예측</em>하고 <em>설명</em>합니다
+          <em>Ensight AI</em>가 <em>예측</em>하고 <em>설명</em>합니다
         </h1>
         <p class="lp-hero-desc">
           Ensight는 Chronos-2 Transformer 기반 멀티모달 전력 수요 예측 시스템입니다.
@@ -555,8 +552,8 @@ const steps = [
 }
 
 .lp-hero-title {
-  font-size: clamp(38px, 5.5vw, 65px); font-weight: 800;
-  color: #fff; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 22px; word-break: normal;
+  font-size: clamp(28px, 3.5vw, 52px); font-weight: 800;
+  color: #fff; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 22px; white-space: nowrap;
 }
 .lp-hero-title em {
   font-style: normal;
